@@ -824,7 +824,7 @@ function showStatus(msg){const el=document.getElementById('backup-status');el.te
 function showModal(title,body){document.getElementById('modal-title').textContent=title;document.getElementById('modal-body').innerHTML=body;document.getElementById('modal').style.display='flex'}
 function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').style.display='none'}
 
-renderCal();
+requestAnimationFrame(()=>renderCal());
 </script>
 </body>
 </html>
