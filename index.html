@@ -38,6 +38,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .cal-day.today{font-weight:500;color:var(--coral)}.cal-day.today::after{content:'';width:4px;height:4px;border-radius:50%;background:var(--coral);position:absolute;bottom:3px}
 .cal-day.checked{background:var(--coral);color:#fff}
 .cal-day.checked.today::after{background:rgba(255,255,255,0.7)}
+.cal-day.draft{background:rgba(224,90,58,0.25);color:var(--text)}
 .stats-row{display:flex;gap:12px;padding:16px 24px 4px}
 .stat-card{flex:1;background:var(--card);border-radius:16px;padding:14px 16px;border:.5px solid var(--border);text-align:center}
 .stat-num{font-size:28px;font-weight:600;color:var(--coral);line-height:1}
@@ -176,7 +177,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 <!-- WORKOUT -->
 <div id="s-workout" class="screen">
   <div class="nav">
-    <span class="nav-back" onclick="go('s-home')">← 返回</span>
+    <span class="nav-back" onclick="saveDraftAndLeave()">← 返回</span>
     <h2>訓練記錄</h2>
     <span style="width:40px"></span>
   </div>
@@ -196,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
     <div style="height:20px"></div>
   </div>
   <div class="btm-actions">
-    <button class="cancel-btn" onclick="go('s-home')">取消</button>
+    <button class="cancel-btn" onclick="saveDraftAndLeave()">儲存草稿</button>
     <button class="finish-btn" onclick="finishWorkout()">✓ 儲存記錄</button>
   </div>
 </div>
@@ -312,6 +313,12 @@ function loadPins(){try{return JSON.parse(localStorage.getItem('wt_pins'))||[]}c
 function savePins(d){try{localStorage.setItem('wt_pins',JSON.stringify(d))}catch(e){}}
 function loadAssist(){try{return JSON.parse(localStorage.getItem('wt_assist'))||[]}catch(e){return[]}}
 function saveAssist(d){try{localStorage.setItem('wt_assist',JSON.stringify(d))}catch(e){}}
+function loadDraft(ds){try{return JSON.parse(localStorage.getItem('wt_draft_'+ds))||null}catch(e){return null}}
+function saveDraft(ds,data){try{localStorage.setItem('wt_draft_'+ds,JSON.stringify(data))}catch(e){}}
+function clearDraft(ds){try{localStorage.removeItem('wt_draft_'+ds)}catch(e){}}
+function hasDraft(ds){return localStorage.getItem('wt_draft_'+ds)!==null}
+function autoSaveDraft(){if(workoutDate)saveDraft(workoutDate,{muscle:curMuscle,session:JSON.parse(JSON.stringify(session))});}
+function saveDraftAndLeave(){autoSaveDraft();go('s-home');}
 
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let workoutDate='',curMuscle='',session={};
@@ -357,7 +364,8 @@ function renderCal(){
   for(let i=0;i<first;i++)html+=`<div class="cal-day other"></div>`;
   for(let d=1;d<=days;d++){
     const ds=`${calYear}/${calMonth+1}/${d}`;
-    html+=`<div class="cal-day ${ds===today?'today':''} ${checked.has(ds)?'checked':''}" onclick="openDay('${ds}')">${d}</div>`;
+    const isSaved=checked.has(ds),isDraft=!isSaved&&hasDraft(ds);
+    html+=`<div class="cal-day ${ds===today?'today':''} ${isSaved?'checked':''} ${isDraft?'draft':''}" onclick="openDay('${ds}')">${d}</div>`;
   }
   document.getElementById('cal-grid').innerHTML=html;
 }
@@ -400,14 +408,20 @@ function confirmDeleteDay(ds){
       <button class="m-ok" style="background:#d94028" onclick="closeModal();deleteDay('${ds}')">確認刪除</button>
     </div>`);
 }
-function deleteDay(ds){saveLogs(loadLogs().filter(l=>l.date!==ds));renderCal()}
+function deleteDay(ds){saveLogs(loadLogs().filter(l=>l.date!==ds));clearDraft(ds);renderCal()}
 
 function startWorkoutOn(ds){
   workoutDate=ds;
-  const existing=loadLogs().find(l=>l.date===ds);
-  session={};
-  if(existing&&existing.exercises)existing.exercises.forEach(e=>{session[e.name]=e.sets.map(s=>({...s}))});
-  curMuscle=Object.keys(loadDB())[0]||'胸部';
+  const draft=loadDraft(ds);
+  if(draft){
+    session=draft.session||{};
+    curMuscle=draft.muscle||Object.keys(loadDB())[0]||'胸部';
+  } else {
+    const existing=loadLogs().find(l=>l.date===ds);
+    session={};
+    if(existing&&existing.exercises)existing.exercises.forEach(e=>{session[e.name]=e.sets.map(s=>({...s}))});
+    curMuscle=Object.keys(loadDB())[0]||'胸部';
+  }
   const wday=['日','一','二','三','四','五','六'];
   const p=ds.split('/'),d=new Date(p[0],p[1]-1,p[2]);
   document.getElementById('workout-date-text').textContent=ds===fmtDate(new Date())?`今天 · ${ds}`:`補記 · ${ds}`;
@@ -447,7 +461,7 @@ function getLastWeight(name){
 }
 function addToSession(n){
   if(!session[n]){const last=getLastWeight(n);session[n]=[{w:last?last.w:20,r:last?last.r:10}]}
-  renderRecCards();
+  renderRecCards();autoSaveDraft();
 }
 function renderRecCards(){
   const keys=Object.keys(session).reverse();
@@ -476,20 +490,22 @@ function confirmDelFromSession(n){
       <button class="m-ok" style="background:#d94028" onclick="closeModal();delFromSession('${n}')">確認刪除</button>
     </div>`);
 }
-function delFromSession(n){delete session[n];renderRecCards()}
-function addSet(n){const s=session[n];s.push({...s[s.length-1]});renderRecCards()}
-function rmSet(n){if(session[n].length>1)session[n].pop();renderRecCards()}
+function delFromSession(n){delete session[n];renderRecCards();autoSaveDraft()}
+function addSet(n){const s=session[n];s.push({...s[s.length-1]});renderRecCards();autoSaveDraft()}
+function rmSet(n){if(session[n].length>1)session[n].pop();renderRecCards();autoSaveDraft()}
 function adjW(n,i,d){
   session[n][i].w=Math.max(0,Math.round((session[n][i].w+d)*10)/10);
   const inp=document.querySelector(`[data-w="${n}-${i}"]`);
   if(inp)inp.value=session[n][i].w;
+  autoSaveDraft();
 }
-function setW(n,i,v){const p=parseFloat(v);if(!isNaN(p)&&p>=0)session[n][i].w=p;}
-function setR(n,i,v){const p=parseInt(v);if(!isNaN(p)&&p>=1)session[n][i].r=p;}
+function setW(n,i,v){const p=parseFloat(v);if(!isNaN(p)&&p>=0){session[n][i].w=p;autoSaveDraft();}}
+function setR(n,i,v){const p=parseInt(v);if(!isNaN(p)&&p>=1){session[n][i].r=p;autoSaveDraft();}}
 function adj(n,i,k,d){
   session[n][i][k]=Math.max(k==='w'?0:1,Math.round((session[n][i][k]+d)*10)/10);
   const inp=document.querySelector(k==='w'?`[data-w="${n}-${i}"]`:`[data-r="${n}-${i}"]`);
   if(inp)inp.value=session[n][i][k];
+  autoSaveDraft();
 }
 function finishWorkout(){
   const keys=Object.keys(session);
@@ -497,7 +513,7 @@ function finishWorkout(){
   const logs=loadLogs(),idx=logs.findIndex(l=>l.date===workoutDate);
   const entry={date:workoutDate,exercises:keys.map(n=>({name:n,sets:session[n].map(s=>({...s}))}))};
   if(idx>=0)logs[idx]=entry;else logs.push(entry);
-  saveLogs(logs);go('s-home');
+  saveLogs(logs);clearDraft(workoutDate);go('s-home');
 }
 
 function addMuscle(){showModal('新增肌群',`<input class="modal-input" id="m-inp" placeholder="例：核心"><div class="modal-btns"><button class="m-cancel" onclick="closeModal()">取消</button><button class="m-ok" onclick="confirmAddMuscle()">新增</button></div>`)}
