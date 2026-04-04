@@ -501,8 +501,7 @@ function go(id){
 }
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  btn.classList.add('on');
-  // sync same tab in other screens
+  document.querySelectorAll(`.tab[onclick*="'${id}'"]`).forEach(t=>t.classList.add('on'));
   go(id);
 }
 
