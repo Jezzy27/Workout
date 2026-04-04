@@ -250,6 +250,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   <div class="backup-status" id="backup-status"></div>
   <div class="scroll">
     <div class="settings-section">
+      <div class="settings-label">個人資料</div>
+      <div class="settings-card">
+        <div class="settings-row" onclick="editProfile()">
+          <div class="settings-row-left">
+            <div class="settings-icon" style="background:#EEF0FA">👤</div>
+            <div><div class="settings-row-title">基本資料</div><div class="settings-row-sub" id="profile-sub">尚未設定</div></div>
+          </div>
+          <span class="settings-arrow">›</span>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-label">資料備份</div>
       <div class="settings-card">
         <div class="settings-row" onclick="exportData()">
@@ -338,6 +350,53 @@ function loadPins(){try{return JSON.parse(localStorage.getItem('wt_pins'))||[]}c
 function savePins(d){try{localStorage.setItem('wt_pins',JSON.stringify(d))}catch(e){}}
 function loadAssist(){try{return JSON.parse(localStorage.getItem('wt_assist'))||[]}catch(e){return[]}}
 function saveAssist(d){try{localStorage.setItem('wt_assist',JSON.stringify(d))}catch(e){}}
+function loadProfile(){try{return JSON.parse(localStorage.getItem('wt_profile'))||{}}catch(e){return{}}}
+function saveProfile(d){try{localStorage.setItem('wt_profile',JSON.stringify(d))}catch(e){}}
+function editProfile(){
+  const p=loadProfile();
+  showModal('個人資料',`
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--muted)">身高（cm）</div>
+      <input class="modal-input" id="p-height" type="number" inputmode="decimal" placeholder="例：175" value="${p.height||''}">
+      <div style="font-size:13px;color:var(--muted)">生日</div>
+      <input class="modal-input" id="p-birth" type="date" value="${p.birth||''}">
+      <div style="font-size:13px;color:var(--muted)">性別</div>
+      <div style="display:flex;gap:8px">
+        <button id="p-male" onclick="selectGender('male')" style="flex:1;padding:10px;border-radius:12px;border:.5px solid var(--border);background:${(p.gender||'')==='male'?'var(--coral-l)':'var(--card)'};color:${(p.gender||'')==='male'?'var(--coral)':'var(--text)'};font-size:14px;cursor:pointer">男</button>
+        <button id="p-female" onclick="selectGender('female')" style="flex:1;padding:10px;border-radius:12px;border:.5px solid var(--border);background:${(p.gender||'')==='female'?'var(--coral-l)':'var(--card)'};color:${(p.gender||'')==='female'?'var(--coral)':'var(--text)'};font-size:14px;cursor:pointer">女</button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="closeModal()">取消</button>
+      <button class="m-ok" onclick="confirmSaveProfile()">儲存</button>
+    </div>`);
+  window._selectedGender=p.gender||'';
+}
+function selectGender(g){
+  window._selectedGender=g;
+  document.getElementById('p-male').style.background=g==='male'?'var(--coral-l)':'var(--card)';
+  document.getElementById('p-male').style.color=g==='male'?'var(--coral)':'var(--text)';
+  document.getElementById('p-female').style.background=g==='female'?'var(--coral-l)':'var(--card)';
+  document.getElementById('p-female').style.color=g==='female'?'var(--coral)':'var(--text)';
+}
+function confirmSaveProfile(){
+  const height=document.getElementById('p-height').value.trim();
+  const birth=document.getElementById('p-birth').value;
+  const gender=window._selectedGender||'';
+  const p={};
+  if(height)p.height=parseFloat(height);
+  if(birth)p.birth=birth;
+  if(gender)p.gender=gender;
+  saveProfile(p);closeModal();renderSettings();showToast('已儲存個人資料');
+}
+function getAge(birth){
+  if(!birth)return null;
+  const b=new Date(birth),now=new Date();
+  let age=now.getFullYear()-b.getFullYear();
+  if(now.getMonth()<b.getMonth()||(now.getMonth()===b.getMonth()&&now.getDate()<b.getDate()))age--;
+  return age;
+}
+
 function loadInBody(){try{return JSON.parse(localStorage.getItem('wt_inbody'))||[]}catch(e){return[]}}
 function saveInBody(d){try{localStorage.setItem('wt_inbody',JSON.stringify(d))}catch(e){}}
 
@@ -377,13 +436,22 @@ function addInBodyRecord(){
       <input class="modal-input" id="ib-date" type="date" value="${today.replace(/\//g,'-')}">
       ${IB_METRICS.map(m=>`
         <div style="font-size:13px;color:var(--muted)">${m.label}${m.unit?'（'+m.unit+'）':''}</div>
-        <input class="modal-input" id="ib-${m.key}" type="number" inputmode="decimal" placeholder="留空則不記錄" step="0.1">
+        <input class="modal-input" id="ib-${m.key}" type="number" inputmode="decimal" placeholder="留空則不記錄" step="0.1" ${m.key==='weight'?'oninput="autoCalcBMI()"':''}>
       `).join('')}
     </div>
     <div class="modal-btns">
       <button class="m-cancel" onclick="closeModal()">取消</button>
       <button class="m-ok" onclick="confirmAddInBody()">儲存</button>
     </div>`);
+}
+function autoCalcBMI(){
+  const p=loadProfile();
+  if(!p.height)return;
+  const w=parseFloat(document.getElementById('ib-weight').value);
+  if(isNaN(w)||w<=0)return;
+  const h=p.height/100;
+  const bmi=Math.round((w/(h*h))*10)/10;
+  document.getElementById('ib-bmi').value=bmi;
 }
 function confirmAddInBody(){
   const dateVal=document.getElementById('ib-date').value;
@@ -886,9 +954,15 @@ function renderSettings(){
   document.getElementById('stats-db').textContent=`${Object.keys(db).length} 個肌群，${totalEx} 個動作`;
   const lb=localStorage.getItem('wt_last_backup');
   document.getElementById('stats-backup').textContent=lb||'從未備份';
+  const p=loadProfile();
+  const parts=[];
+  if(p.height)parts.push(`${p.height}cm`);
+  if(p.birth){const age=getAge(p.birth);if(age!=null)parts.push(`${age}歲`);}
+  if(p.gender)parts.push(p.gender==='male'?'男':'女');
+  document.getElementById('profile-sub').textContent=parts.length?parts.join('・'):'尚未設定';
 }
 function exportData(){
-  const payload={version:1,exported:new Date().toLocaleString('zh-TW'),logs:loadLogs(),db:loadDB()};
+  const payload={version:2,exported:new Date().toLocaleString('zh-TW'),logs:loadLogs(),db:loadDB(),inbody:loadInBody(),profile:loadProfile()};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -908,6 +982,8 @@ function importData(event){
       if(!data.logs||!data.db){alert('檔案格式不正確');return}
       if(!confirm(`確定要匯入備份嗎？\n這會覆蓋目前所有資料。\n備份日期：${data.exported||'未知'}`))return;
       saveLogs(data.logs);saveDB(data.db);
+      if(data.inbody)saveInBody(data.inbody);
+      if(data.profile)saveProfile(data.profile);
       showStatus('✅ 匯入成功！資料已還原');renderSettings();
     }catch(err){alert('讀取檔案失敗')}
   };
