@@ -103,9 +103,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .inbody-header{padding: max(24px, calc(env(safe-area-inset-top) + 24px)) 24px 12px 24px;display:flex;align-items:flex-end;justify-content:space-between}
 .inbody-header h1{font-size:26px;font-weight:500;color:var(--text)}
 .inbody-add-btn{background:var(--coral);color:#fff;border:none;border-radius:12px;padding:8px 16px;font-size:14px;cursor:pointer}
-.inbody-metric-row{display:flex;gap:8px;padding:10px 20px;overflow-x:auto;scrollbar-width:none}.inbody-metric-row::-webkit-scrollbar{display:none}
-.ibchip{padding:7px 16px;border-radius:20px;border:.5px solid var(--border);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
-.ibchip.on{background:var(--coral-l);color:var(--coral);border-color:var(--coral-m)}
 .inbody-chart-card{margin:8px 20px;background:var(--card);border-radius:16px;padding:14px;border:.5px solid var(--border)}
 .inbody-log-list{padding:0 20px;display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
 .iblog-card{background:var(--card);border-radius:14px;padding:14px 16px;border:.5px solid var(--border)}
@@ -242,12 +239,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
     <h1>InBody</h1>
     <button class="inbody-add-btn" onclick="addInBodyRecord()">＋ 新增</button>
   </div>
-  <div class="inbody-metric-row" id="ib-metric-row"></div>
-  <div class="inbody-chart-card" id="ib-chart-card">
-    <div class="chart-card-title" id="ib-chart-title"></div>
-    <canvas id="ibChart" height="150"></canvas>
-  </div>
   <div class="scroll">
+    <div id="ib-charts"></div>
     <div class="inbody-log-list" id="ib-log-list"></div>
   </div>
   <div class="tabs">
@@ -362,15 +355,26 @@ const IB_METRICS=[
   {key:'bmi',label:'BMI',unit:''},
   {key:'fatPct',label:'體脂率',unit:'%'},
 ];
-let ibMetric='weight',ibChartInst=null;
+let ibChartInsts={};
 
 function renderInBody(){
   const records=loadInBody().slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
-  // metric chips
-  document.getElementById('ib-metric-row').innerHTML=IB_METRICS.map(m=>
-    `<div class="ibchip ${m.key===ibMetric?'on':''}" onclick="selectIBMetric('${m.key}')">${m.label}</div>`
-  ).join('');
-  renderIBChart(records);
+  // destroy old charts
+  Object.values(ibChartInsts).forEach(c=>c.destroy());
+  ibChartInsts={};
+  // render five charts
+  document.getElementById('ib-charts').innerHTML=IB_METRICS.map(m=>`
+    <div class="inbody-chart-card" style="margin-bottom:0">
+      <div class="chart-card-title">${m.label}${m.unit?'（'+m.unit+'）':''}</div>
+      <div id="ib-chart-wrap-${m.key}"></div>
+    </div>`).join('');
+  IB_METRICS.forEach(m=>{
+    const data=records.filter(r=>r[m.key]!=null&&r[m.key]!=='');
+    const wrap=document.getElementById('ib-chart-wrap-'+m.key);
+    if(data.length<2){wrap.innerHTML=`<div style="text-align:center;padding:20px 0;color:var(--muted);font-size:13px">尚無資料</div>`;return;}
+    const canvas=document.createElement('canvas');canvas.height=150;wrap.appendChild(canvas);
+    ibChartInsts[m.key]=new Chart(canvas.getContext('2d'),{type:'line',data:{labels:data.map(r=>r.date),datasets:[{data:data.map(r=>parseFloat(r[m.key])),borderColor:'#E05A3A',backgroundColor:'rgba(224,90,58,0.1)',tension:0.4,pointBackgroundColor:'#E05A3A',pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  });
   // log list (newest first)
   const sorted=[...records].reverse();
   document.getElementById('ib-log-list').innerHTML=sorted.length?sorted.map(r=>{
@@ -384,18 +388,6 @@ function renderInBody(){
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px 0;color:var(--muted);font-size:14px">還沒有紀錄，點右上角新增</div>`;
 }
-function renderIBChart(records){
-  const metric=IB_METRICS.find(m=>m.key===ibMetric);
-  const data=records.filter(r=>r[ibMetric]!=null&&r[ibMetric]!=='');
-  const card=document.getElementById('ib-chart-card');
-  if(data.length<2){card.style.display='none';if(ibChartInst){ibChartInst.destroy();ibChartInst=null;}return;}
-  card.style.display='block';
-  document.getElementById('ib-chart-title').textContent=`${metric.label} 趨勢`;
-  const ctx=document.getElementById('ibChart').getContext('2d');
-  if(ibChartInst)ibChartInst.destroy();
-  ibChartInst=new Chart(ctx,{type:'line',data:{labels:data.map(r=>r.date),datasets:[{data:data.map(r=>parseFloat(r[ibMetric])),borderColor:'#E05A3A',backgroundColor:'rgba(224,90,58,0.1)',tension:0.4,pointBackgroundColor:'#E05A3A',pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
-}
-function selectIBMetric(key){ibMetric=key;renderInBody();}
 function addInBodyRecord(){
   const today=fmtDate(new Date());
   showModal('新增 InBody 紀錄',`
