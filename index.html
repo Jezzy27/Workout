@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="訓練紀錄">
-<link rel="apple-touch-icon" href="LOGO.jpg">
+<link rel="apple-touch-icon" href="1.jpg">
 <title>訓練紀錄</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -662,7 +662,7 @@ function manageMuscle(m){
             <button style="font-size:12px;color:var(--green);background:none;border:none;cursor:pointer" onclick="addExFromSettings('${m}','${cat}')">＋ 新增</button>
           </div>
           ${exs.map(e=>`<div class="modal-item">
-            <span class="modal-item-name">${e}</span>
+            <span class="modal-item-name" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" onclick="renameExPrompt('${m}','${cat}','${e}')">${e}</span>
             <div style="display:flex;gap:6px">
               <button class="modal-item-del" style="color:var(--muted)" onclick="moveExPrompt('${m}','${cat}','${e}')">移動</button>
               <button class="modal-item-del" onclick="confirmDelExFromSettings('${m}','${cat}','${e}')">刪除</button>
@@ -714,6 +714,21 @@ function moveExPrompt(m,c,e){
       </div>`).join('')}
     </div>
     <div class="modal-btns"><button class="m-cancel" onclick="manageMuscle('${m}')">取消</button></div>`);
+}
+function renameExPrompt(m,c,e){
+  showModal(`改名「${e}」`,`<input class="modal-input" id="ren-inp" placeholder="新名稱" value="${e}"><div class="modal-btns"><button class="m-cancel" onclick="manageMuscle('${m}')">取消</button><button class="m-ok" onclick="confirmRenameEx('${m}','${c}','${e}')">確認</button></div>`);
+  setTimeout(()=>{const inp=document.getElementById('ren-inp');if(inp){inp.focus();inp.select();}},100);
+}
+function confirmRenameEx(m,c,oldName){
+  const newName=document.getElementById('ren-inp').value.trim();
+  if(!newName||newName===oldName)return;
+  const db=loadDB();
+  db[m][c]=db[m][c].map(x=>x===oldName?newName:x);
+  saveDB(db);
+  const logs=loadLogs();
+  logs.forEach(w=>{(w.exercises||[]).forEach(e=>{if(e.name===oldName)e.name=newName;});});
+  saveLogs(logs);
+  renderSettings();manageMuscle(m);showToast(`「${oldName}」已改名為「${newName}」`);
 }
 function moveEx(fromM,fromC,e,toM,toC){
   const db=loadDB();
