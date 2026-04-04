@@ -104,13 +104,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .inbody-header h1{font-size:26px;font-weight:500;color:var(--text)}
 .inbody-add-btn{background:var(--coral);color:#fff;border:none;border-radius:12px;padding:8px 16px;font-size:14px;cursor:pointer}
 .inbody-chart-card{margin:8px 20px;background:var(--card);border-radius:16px;padding:14px;border:.5px solid var(--border)}
-.inbody-log-list{padding:0 20px;display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
-.iblog-card{background:var(--card);border-radius:14px;padding:14px 16px;border:.5px solid var(--border)}
-.iblog-date{font-size:13px;color:var(--muted);margin-bottom:8px}
-.iblog-fields{display:flex;flex-wrap:wrap;gap:8px}
-.iblog-field{background:var(--coral-l);border-radius:8px;padding:5px 10px;font-size:13px;color:var(--coral)}
-.iblog-field span{color:var(--text);font-weight:500}
-.iblog-del{float:right;background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:0;line-height:1}
 .settings-header{padding: max(24px, calc(env(safe-area-inset-top) + 24px)) 24px 12px 24px}
 .settings-header h1{font-size:26px;font-weight:500;color:var(--text)}
 .settings-section{padding:16px 20px 0}
@@ -241,7 +234,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   </div>
   <div class="scroll">
     <div id="ib-charts"></div>
-    <div class="inbody-log-list" id="ib-log-list"></div>
+    <div style="height:20px"></div>
   </div>
   <div class="tabs">
     <button class="tab" onclick="goTab('s-home',this)"><span class="ti">📅</span>日曆</button>
@@ -375,18 +368,6 @@ function renderInBody(){
     const canvas=document.createElement('canvas');canvas.height=150;wrap.appendChild(canvas);
     ibChartInsts[m.key]=new Chart(canvas.getContext('2d'),{type:'line',data:{labels:data.map(r=>r.date),datasets:[{data:data.map(r=>parseFloat(r[m.key])),borderColor:'#E05A3A',backgroundColor:'rgba(224,90,58,0.1)',tension:0.4,pointBackgroundColor:'#E05A3A',pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
   });
-  // log list (newest first)
-  const sorted=[...records].reverse();
-  document.getElementById('ib-log-list').innerHTML=sorted.length?sorted.map(r=>{
-    const fields=IB_METRICS.filter(m=>r[m.key]!=null&&r[m.key]!=='');
-    return`<div class="iblog-card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="iblog-date">${r.date}</div>
-        <button class="iblog-del" onclick="confirmDelInBody('${r.date}')">🗑</button>
-      </div>
-      <div class="iblog-fields">${fields.map(m=>`<div class="iblog-field">${m.label}：<span>${r[m.key]}${m.unit}</span></div>`).join('')}</div>
-    </div>`;
-  }).join(''):`<div style="text-align:center;padding:40px 0;color:var(--muted);font-size:14px">還沒有紀錄，點右上角新增</div>`;
 }
 function addInBodyRecord(){
   const today=fmtDate(new Date());
