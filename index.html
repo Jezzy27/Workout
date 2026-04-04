@@ -100,6 +100,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .prcard-left .prname{font-size:15px;font-weight:500;color:var(--text)}.prcard-left .prdate{font-size:12px;color:var(--muted);margin-top:2px}
 .prcard-left .prtrend{font-size:12px;color:var(--green);margin-top:2px}
 .prcard-right .prval{font-size:22px;font-weight:500;color:var(--coral)}.prcard-right .prlabel{font-size:11px;color:var(--muted);text-align:right}
+.inbody-header{padding: max(24px, calc(env(safe-area-inset-top) + 24px)) 24px 12px 24px;display:flex;align-items:flex-end;justify-content:space-between}
+.inbody-header h1{font-size:26px;font-weight:500;color:var(--text)}
+.inbody-add-btn{background:var(--coral);color:#fff;border:none;border-radius:12px;padding:8px 16px;font-size:14px;cursor:pointer}
+.inbody-metric-row{display:flex;gap:8px;padding:10px 20px;overflow-x:auto;scrollbar-width:none}.inbody-metric-row::-webkit-scrollbar{display:none}
+.ibchip{padding:7px 16px;border-radius:20px;border:.5px solid var(--border);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.ibchip.on{background:var(--coral-l);color:var(--coral);border-color:var(--coral-m)}
+.inbody-chart-card{margin:8px 20px;background:var(--card);border-radius:16px;padding:14px;border:.5px solid var(--border)}
+.inbody-log-list{padding:0 20px;display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
+.iblog-card{background:var(--card);border-radius:14px;padding:14px 16px;border:.5px solid var(--border)}
+.iblog-date{font-size:13px;color:var(--muted);margin-bottom:8px}
+.iblog-fields{display:flex;flex-wrap:wrap;gap:8px}
+.iblog-field{background:var(--coral-l);border-radius:8px;padding:5px 10px;font-size:13px;color:var(--coral)}
+.iblog-field span{color:var(--text);font-weight:500}
+.iblog-del{float:right;background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:0;line-height:1}
 .settings-header{padding: max(24px, calc(env(safe-area-inset-top) + 24px)) 24px 12px 24px}
 .settings-header h1{font-size:26px;font-weight:500;color:var(--text)}
 .settings-section{padding:16px 20px 0}
@@ -170,6 +184,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   <div class="tabs">
     <button class="tab on" onclick="goTab('s-home',this)"><span class="ti">📅</span>日曆</button>
     <button class="tab" onclick="goTab('s-pr',this)"><span class="ti">📈</span>趨勢</button>
+    <button class="tab" onclick="goTab('s-inbody',this)"><span class="ti">⚖️</span>InBody</button>
     <button class="tab" onclick="goTab('s-settings',this)"><span class="ti">⚙️</span>設定</button>
   </div>
 </div>
@@ -216,6 +231,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   <div class="tabs">
     <button class="tab" onclick="goTab('s-home',this)"><span class="ti">📅</span>日曆</button>
     <button class="tab on" onclick="goTab('s-pr',this)"><span class="ti">📈</span>趨勢</button>
+    <button class="tab" onclick="goTab('s-inbody',this)"><span class="ti">⚖️</span>InBody</button>
+    <button class="tab" onclick="goTab('s-settings',this)"><span class="ti">⚙️</span>設定</button>
+  </div>
+</div>
+
+<!-- INBODY -->
+<div id="s-inbody" class="screen">
+  <div class="inbody-header">
+    <h1>InBody</h1>
+    <button class="inbody-add-btn" onclick="addInBodyRecord()">＋ 新增</button>
+  </div>
+  <div class="inbody-metric-row" id="ib-metric-row"></div>
+  <div class="inbody-chart-card" id="ib-chart-card">
+    <div class="chart-card-title" id="ib-chart-title"></div>
+    <canvas id="ibChart" height="150"></canvas>
+  </div>
+  <div class="scroll">
+    <div class="inbody-log-list" id="ib-log-list"></div>
+  </div>
+  <div class="tabs">
+    <button class="tab" onclick="goTab('s-home',this)"><span class="ti">📅</span>日曆</button>
+    <button class="tab" onclick="goTab('s-pr',this)"><span class="ti">📈</span>趨勢</button>
+    <button class="tab on" onclick="goTab('s-inbody',this)"><span class="ti">⚖️</span>InBody</button>
     <button class="tab" onclick="goTab('s-settings',this)"><span class="ti">⚙️</span>設定</button>
   </div>
 </div>
@@ -286,6 +324,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   <div class="tabs">
     <button class="tab" onclick="goTab('s-home',this)"><span class="ti">📅</span>日曆</button>
     <button class="tab" onclick="goTab('s-pr',this)"><span class="ti">📈</span>趨勢</button>
+    <button class="tab" onclick="goTab('s-inbody',this)"><span class="ti">⚖️</span>InBody</button>
     <button class="tab on" onclick="goTab('s-settings',this)"><span class="ti">⚙️</span>設定</button>
   </div>
 </div>
@@ -313,6 +352,92 @@ function loadPins(){try{return JSON.parse(localStorage.getItem('wt_pins'))||[]}c
 function savePins(d){try{localStorage.setItem('wt_pins',JSON.stringify(d))}catch(e){}}
 function loadAssist(){try{return JSON.parse(localStorage.getItem('wt_assist'))||[]}catch(e){return[]}}
 function saveAssist(d){try{localStorage.setItem('wt_assist',JSON.stringify(d))}catch(e){}}
+function loadInBody(){try{return JSON.parse(localStorage.getItem('wt_inbody'))||[]}catch(e){return[]}}
+function saveInBody(d){try{localStorage.setItem('wt_inbody',JSON.stringify(d))}catch(e){}}
+
+const IB_METRICS=[
+  {key:'weight',label:'體重',unit:'kg'},
+  {key:'muscle',label:'骨骼肌量',unit:'kg'},
+  {key:'fat',label:'體脂量',unit:'kg'},
+  {key:'bmi',label:'BMI',unit:''},
+  {key:'fatPct',label:'體脂率',unit:'%'},
+];
+let ibMetric='weight',ibChartInst=null;
+
+function renderInBody(){
+  const records=loadInBody().slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  // metric chips
+  document.getElementById('ib-metric-row').innerHTML=IB_METRICS.map(m=>
+    `<div class="ibchip ${m.key===ibMetric?'on':''}" onclick="selectIBMetric('${m.key}')">${m.label}</div>`
+  ).join('');
+  renderIBChart(records);
+  // log list (newest first)
+  const sorted=[...records].reverse();
+  document.getElementById('ib-log-list').innerHTML=sorted.length?sorted.map(r=>{
+    const fields=IB_METRICS.filter(m=>r[m.key]!=null&&r[m.key]!=='');
+    return`<div class="iblog-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="iblog-date">${r.date}</div>
+        <button class="iblog-del" onclick="confirmDelInBody('${r.date}')">🗑</button>
+      </div>
+      <div class="iblog-fields">${fields.map(m=>`<div class="iblog-field">${m.label}：<span>${r[m.key]}${m.unit}</span></div>`).join('')}</div>
+    </div>`;
+  }).join(''):`<div style="text-align:center;padding:40px 0;color:var(--muted);font-size:14px">還沒有紀錄，點右上角新增</div>`;
+}
+function renderIBChart(records){
+  const metric=IB_METRICS.find(m=>m.key===ibMetric);
+  const data=records.filter(r=>r[ibMetric]!=null&&r[ibMetric]!=='');
+  const card=document.getElementById('ib-chart-card');
+  if(data.length<2){card.style.display='none';if(ibChartInst){ibChartInst.destroy();ibChartInst=null;}return;}
+  card.style.display='block';
+  document.getElementById('ib-chart-title').textContent=`${metric.label} 趨勢`;
+  const ctx=document.getElementById('ibChart').getContext('2d');
+  if(ibChartInst)ibChartInst.destroy();
+  ibChartInst=new Chart(ctx,{type:'line',data:{labels:data.map(r=>r.date),datasets:[{data:data.map(r=>parseFloat(r[ibMetric])),borderColor:'#E05A3A',backgroundColor:'rgba(224,90,58,0.1)',tension:0.4,pointBackgroundColor:'#E05A3A',pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+}
+function selectIBMetric(key){ibMetric=key;renderInBody();}
+function addInBodyRecord(){
+  const today=fmtDate(new Date());
+  showModal('新增 InBody 紀錄',`
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--muted)">日期</div>
+      <input class="modal-input" id="ib-date" type="date" value="${today.replace(/\//g,'-')}">
+      ${IB_METRICS.map(m=>`
+        <div style="font-size:13px;color:var(--muted)">${m.label}${m.unit?'（'+m.unit+'）':''}</div>
+        <input class="modal-input" id="ib-${m.key}" type="number" inputmode="decimal" placeholder="留空則不記錄" step="0.1">
+      `).join('')}
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="closeModal()">取消</button>
+      <button class="m-ok" onclick="confirmAddInBody()">儲存</button>
+    </div>`);
+}
+function confirmAddInBody(){
+  const dateVal=document.getElementById('ib-date').value;
+  if(!dateVal)return;
+  const date=dateVal.replace(/-/g,'/');
+  const record={date};
+  IB_METRICS.forEach(m=>{
+    const v=document.getElementById('ib-'+m.key).value.trim();
+    if(v!=='')record[m.key]=parseFloat(v);
+  });
+  const records=loadInBody();
+  const idx=records.findIndex(r=>r.date===date);
+  if(idx>=0)records[idx]=record;else records.push(record);
+  saveInBody(records);closeModal();renderInBody();showToast('已儲存');
+}
+function confirmDelInBody(date){
+  showModal('確認刪除',`
+    <div style="text-align:center;padding:8px 0 18px">
+      <div style="font-size:15px;color:var(--text);margin-bottom:6px">確定刪除 <strong>${date}</strong> 的紀錄？</div>
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="closeModal()">取消</button>
+      <button class="m-ok" style="background:#d94028" onclick="delInBody('${date}')">確認刪除</button>
+    </div>`);
+}
+function delInBody(date){saveInBody(loadInBody().filter(r=>r.date!==date));closeModal();renderInBody();showToast('已刪除');}
+
 function loadDraft(ds){try{return JSON.parse(localStorage.getItem('wt_draft_'+ds))||null}catch(e){return null}}
 function saveDraft(ds,data){try{localStorage.setItem('wt_draft_'+ds,JSON.stringify(data))}catch(e){}}
 function clearDraft(ds){try{localStorage.removeItem('wt_draft_'+ds)}catch(e){}}
@@ -329,6 +454,7 @@ function go(id){
   document.getElementById(id).classList.add('active');
   if(id==='s-home')renderCal();
   if(id==='s-pr')renderPR();
+  if(id==='s-inbody')renderInBody();
   if(id==='s-settings')renderSettings();
 }
 function goTab(id,btn){
