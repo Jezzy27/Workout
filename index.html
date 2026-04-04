@@ -423,17 +423,18 @@ function renderInBody(){
   IB_METRICS.forEach(m=>{
     const data=records.filter(r=>r[m.key]!=null&&r[m.key]!=='');
     const wrap=document.getElementById('ib-chart-wrap-'+m.key);
-    if(data.length<2){wrap.innerHTML=`<div style="text-align:center;padding:20px 0;color:var(--muted);font-size:13px">尚無資料</div>`;return;}
+    if(data.length<1){wrap.innerHTML=`<div style="text-align:center;padding:20px 0;color:var(--muted);font-size:13px">尚無資料</div>`;return;}
     const canvas=document.createElement('canvas');canvas.height=150;wrap.appendChild(canvas);
     ibChartInsts[m.key]=new Chart(canvas.getContext('2d'),{type:'line',data:{labels:data.map(r=>r.date),datasets:[{data:data.map(r=>parseFloat(r[m.key])),borderColor:'#E05A3A',backgroundColor:'rgba(224,90,58,0.1)',tension:0.4,pointBackgroundColor:'#E05A3A',pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
   });
 }
 function addInBodyRecord(){
-  const today=fmtDate(new Date());
+  const _d=new Date();
+  const today=`${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
   showModal('新增 InBody 紀錄',`
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
       <div style="font-size:13px;color:var(--muted)">日期</div>
-      <input class="modal-input" id="ib-date" type="date" value="${today.replace(/\//g,'-')}">
+      <input class="modal-input" id="ib-date" type="date" value="${today}">
       ${IB_METRICS.map(m=>`
         <div style="font-size:13px;color:var(--muted)">${m.label}${m.unit?'（'+m.unit+'）':''}</div>
         <input class="modal-input" id="ib-${m.key}" type="number" inputmode="decimal" placeholder="留空則不記錄" step="0.1" ${m.key==='weight'?'oninput="autoCalcBMI()"':''}>
