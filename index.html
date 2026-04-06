@@ -156,11 +156,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   <div class="stats-row">
     <div class="stat-card" id="stat-card-year">
       <div class="stat-num" id="stat-year">0</div>
-      <div class="stat-label">今年次數</div>
+      <div class="stat-label">本月次數</div>
     </div>
-    <div class="stat-card" id="stat-card-week">
+    <div class="stat-card" id="stat-card-week" onclick="setWeekGoal()" style="cursor:pointer">
       <div class="stat-num" id="stat-week">0/3</div>
-      <div class="stat-label">本週目標</div>
+      <div class="stat-label">本週目標 ›</div>
     </div>
   </div>
   <div class="cal-nav">
@@ -508,15 +508,21 @@ function goTab(id,btn){
 function changeMonth(d){calMonth+=d;if(calMonth>11){calMonth=0;calYear++}if(calMonth<0){calMonth=11;calYear--}renderCal()}
 function fmtDate(d){return`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`}
 
+function loadWeekGoal(){const v=parseInt(localStorage.getItem('wt_week_goal'));return(!isNaN(v)&&v>0)?v:3;}
+function saveWeekGoal(v){localStorage.setItem('wt_week_goal',v);}
+function setWeekGoal(){
+  const cur=loadWeekGoal();
+  showModal('每週目標',`<div style="padding:4px 0 8px"><p style="font-size:14px;color:var(--muted);margin-bottom:16px;text-align:center">設定每週訓練目標次數</p><div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px"><button class="nbtn" onclick="var i=document.getElementById('gi');i.value=Math.max(1,parseInt(i.value||1)-1)">－</button><input id="gi" type="number" class="nval" style="width:64px;text-align:center;font-size:22px;font-weight:600" value="${cur}" min="1" max="14"><button class="nbtn" onclick="var i=document.getElementById('gi');i.value=Math.min(14,parseInt(i.value||1)+1)">＋</button></div><div class="modal-btns"><button class="m-cancel" onclick="closeModal()">取消</button><button class="m-ok" onclick="var v=parseInt(document.getElementById('gi').value);if(v>0&&v<=14){saveWeekGoal(v);closeModal();renderStats();showToast('已更新週目標');}">儲存</button></div></div>`);
+}
 function renderStats(){
-  const logs=loadLogs(),now=new Date(),year=now.getFullYear();
-  const yearCount=logs.filter(l=>parseInt(l.date.split('/')[0])===year).length;
+  const logs=loadLogs(),now=new Date(),year=now.getFullYear(),month=now.getMonth();
+  const monthCount=logs.filter(l=>{const p=l.date.split('/');return parseInt(p[0])===year&&parseInt(p[1])-1===month;}).length;
   const dow=now.getDay();
   const mon=new Date(now);mon.setDate(now.getDate()-(dow===0?6:dow-1));mon.setHours(0,0,0,0);
   const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);
   const weekCount=logs.filter(l=>{const p=l.date.split('/');const d=new Date(p[0],p[1]-1,p[2]);return d>=mon&&d<=sun;}).length;
-  const goal=3,done=weekCount>=goal;
-  document.getElementById('stat-year').textContent=yearCount;
+  const goal=loadWeekGoal(),done=weekCount>=goal;
+  document.getElementById('stat-year').textContent=monthCount;
   document.getElementById('stat-week').textContent=`${Math.min(weekCount,goal)}/${goal}`;
   document.getElementById('stat-card-week').classList.toggle('done',done);
 }
@@ -559,9 +565,81 @@ function openDay(ds){
       <button class="m-ok" style="flex:none" onclick="closeModal();startWorkoutOn('${ds}')">
         ${existing&&existing.exercises&&existing.exercises.length?'✏ 編輯訓練記錄':'＋ 記錄訓練'}
       </button>
+      ${existing?`<button class="m-cancel" style="flex:none" onclick="closeModal();moveDay('${ds}')">📅 搬移到其他日期</button>`:''}
       ${existing?`<button class="m-cancel" style="flex:none;color:var(--coral);border-color:var(--coral-m)" onclick="confirmDeleteDay('${ds}')">🗑 刪除此日紀錄</button>`:''}
     </div>
     <button class="m-cancel" style="width:100%" onclick="closeModal()">取消</button>`);
+}
+function moveDay(fromDs){
+  const logs=loadLogs();
+  const existing=logs.find(l=>l.date===fromDs);
+  if(!existing)return;
+  // 建立月曆選擇器，預設顯示 fromDs 所在月份
+  const parts=fromDs.split('/');
+  const initYear=parseInt(parts[0]),initMonth=parseInt(parts[1])-1;
+  let pickYear=initYear,pickMonth=initMonth;
+  function renderPickCal(){
+    const mn=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const days=new Date(pickYear,pickMonth+1,0).getDate();
+    const first=new Date(pickYear,pickMonth,1).getDay();
+    const savedDates=new Set(logs.map(l=>l.date));
+    let grid=['日','一','二','三','四','五','六'].map(d=>`<div style="text-align:center;font-size:11px;color:var(--muted);padding:4px 0">${d}</div>`).join('');
+    for(let i=0;i<first;i++)grid+=`<div></div>`;
+    for(let d=1;d<=days;d++){
+      const ds=`${pickYear}/${pickMonth+1}/${d}`;
+      const isFrom=ds===fromDs;
+      const hasLog=savedDates.has(ds)&&!isFrom;
+      const style=isFrom
+        ?'background:var(--coral-m);color:var(--text);pointer-events:none;'
+        :hasLog?'background:var(--coral-l);color:var(--coral);border:.5px solid var(--coral-m);'
+        :'';
+      grid+=`<div onclick="confirmMoveDay('${fromDs}','${ds}')" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px;cursor:pointer;${style}">${d}</div>`;
+    }
+    document.getElementById('move-cal-label').textContent=`${pickYear} 年 ${mn[pickMonth]}`;
+    document.getElementById('move-cal-grid').innerHTML=grid;
+  }
+  showModal('搬移訓練到',`
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;text-align:center">選擇目標日期（橘底為原日期，不可選）</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <button class="cal-arrow" onclick="pickMonth--;if(pickMonth<0){pickMonth=11;pickYear--;}renderPickCal()">‹</button>
+      <span id="move-cal-label" style="font-size:15px;font-weight:500;color:var(--text)"></span>
+      <button class="cal-arrow" onclick="pickMonth++;if(pickMonth>11){pickMonth=0;pickYear++;}renderPickCal()">›</button>
+    </div>
+    <div id="move-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px"></div>
+    <button class="m-cancel" style="width:100%" onclick="openDay('${fromDs}')">取消</button>`);
+  renderPickCal();
+}
+function confirmMoveDay(fromDs,toDs){
+  const logs=loadLogs();
+  if(logs.find(l=>l.date===toDs)){
+    showModal('日期已有紀錄',`
+      <div style="text-align:center;padding:8px 0 18px">
+        <div style="font-size:32px;margin-bottom:10px">⚠️</div>
+        <div style="font-size:15px;color:var(--text);margin-bottom:6px">${toDs} 已有訓練紀錄</div>
+        <div style="font-size:13px;color:var(--muted)">無法搬移，請選擇其他日期</div>
+      </div>
+      <button class="m-ok" style="width:100%" onclick="moveDay('${fromDs}')">重新選擇</button>`);
+    return;
+  }
+  showModal('確認搬移',`
+    <div style="text-align:center;padding:8px 0 18px">
+      <div style="font-size:32px;margin-bottom:10px">📅</div>
+      <div style="font-size:15px;color:var(--text);margin-bottom:6px">將 <strong>${fromDs}</strong> 的訓練<br>搬移到 <strong>${toDs}</strong>？</div>
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="moveDay('${fromDs}')">返回</button>
+      <button class="m-ok" onclick="closeModal();executeMoveDay('${fromDs}','${toDs}')">確認搬移</button>
+    </div>`);
+}
+function executeMoveDay(fromDs,toDs){
+  const logs=loadLogs();
+  const idx=logs.findIndex(l=>l.date===fromDs);
+  if(idx===-1)return;
+  logs[idx]=Object.assign({},logs[idx],{date:toDs});
+  saveLogs(logs);
+  clearDraft(fromDs);
+  renderCal();
+  showToast(`已搬移到 ${toDs}`);
 }
 function confirmDeleteDay(ds){
   showModal('確認刪除',`
