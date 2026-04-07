@@ -45,6 +45,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .stat-label{font-size:12px;color:var(--muted);margin-top:5px}
 .stat-card.done .stat-num{color:var(--green)}
 .stat-card.done{border-color:rgba(45,125,79,0.25);background:#f2faf5}
+.week-muscle-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:12px 16px;background:var(--card);margin:0 24px 12px;border-radius:16px;border:.5px solid var(--border)}
+.wmc{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px}
+.wmc-num{font-size:18px;font-weight:600;color:var(--coral);line-height:1}.wmc-num.ok{color:var(--green)}
+.wmc-label{font-size:11px;color:var(--muted)}
 .cal-hint{text-align:center;font-size:13px;color:var(--muted);padding:0 24px 16px}
 .workout-date-banner{margin:0 20px 14px;background:var(--coral-l);border-radius:14px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
 .workout-date-text{font-size:14px;font-weight:500;color:var(--coral)}.workout-date-sub{font-size:12px;color:var(--coral-m)}
@@ -169,6 +173,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
     <button class="cal-arrow" onclick="changeMonth(1)">›</button>
   </div>
   <div class="cal-grid" id="cal-grid"></div>
+  <div class="week-muscle-row" id="week-muscle-row"></div>
   <div class="cal-hint">點選任何日期 — 新增或補記訓練</div>
   <div style="flex:1"></div>
   <div class="tabs">
@@ -520,11 +525,22 @@ function renderStats(){
   const dow=now.getDay();
   const mon=new Date(now);mon.setDate(now.getDate()-(dow===0?6:dow-1));mon.setHours(0,0,0,0);
   const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);
-  const weekCount=logs.filter(l=>{const p=l.date.split('/');const d=new Date(p[0],p[1]-1,p[2]);return d>=mon&&d<=sun;}).length;
+  const weekLogs=logs.filter(l=>{const p=l.date.split('/');const d=new Date(p[0],p[1]-1,p[2]);return d>=mon&&d<=sun;});
+  const weekCount=weekLogs.length;
   const goal=loadWeekGoal(),done=weekCount>=goal;
   document.getElementById('stat-year').textContent=monthCount;
   document.getElementById('stat-week').textContent=`${Math.min(weekCount,goal)}/${goal}`;
   document.getElementById('stat-card-week').classList.toggle('done',done);
+  // 本週各肌群組數
+  const db=loadDB();
+  const exToMuscle={};
+  Object.entries(db).forEach(([muscle,cats])=>{Object.values(cats).forEach(exs=>{exs.forEach(ex=>{exToMuscle[ex]=muscle;});});});
+  const muscleSets={};
+  weekLogs.forEach(log=>{(log.exercises||[]).forEach(ex=>{const m=exToMuscle[ex.name]||'其他';muscleSets[m]=(muscleSets[m]||0)+(ex.sets||[]).length;});});
+  document.getElementById('week-muscle-row').innerHTML=Object.keys(db).map(m=>{
+    const s=muscleSets[m]||0;
+    return`<div class="wmc"><span class="wmc-num${s>=10?' ok':''}">${s}</span><span class="wmc-label">${m}</span></div>`;
+  }).join('');
 }
 function renderCal(){
   renderStats();
@@ -837,7 +853,7 @@ function renderPR(){
           </div>
           <div class="prcard-right" style="text-align:right">
             <div><span class="prval">${best}</span><span style="font-size:12px;color:var(--coral)"> kg</span></div>
-            <div style="font-size:11px;color:var(--coral);margin-top:4px">${isAssist?'最輕':'PR'} ${bestReps} 下</div>
+            <div style="font-size:11px;color:var(--coral);margin-top:4px">${isAssist?'最輕':'RM'} ${bestReps} 下</div>
           </div>
         </div>
       </div>
