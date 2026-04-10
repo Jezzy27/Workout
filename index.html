@@ -986,7 +986,7 @@ let _dbDrag=null;
 function manageDB(){
   const db=loadDB();
   const html=Object.entries(db).map(([m,cats])=>`
-    <div class="db-section"
+    <div class="db-section" data-muscle="${m}"
          ondragover="dbSectionDragOver(event)"
          ondragleave="dbSectionDragLeave(event)"
          ondrop="dbSectionDrop(event,'${m}')">
@@ -1003,7 +1003,7 @@ function manageDB(){
         </div>
       </div>
       ${Object.entries(cats).map(([cat,exs])=>`
-        <div class="db-cat-zone"
+        <div class="db-cat-zone" data-muscle="${m}" data-cat="${cat}"
              ondragover="dbDragOver(event)"
              ondragleave="dbDragLeave(event)"
              ondrop="dbDrop(event,'${m}','${cat}')">
@@ -1013,7 +1013,7 @@ function manageDB(){
           </div>
           ${exs.length===0?'<div class="db-drop-hint">拖曳動作到這裡</div>':''}
           ${exs.map(e=>`
-            <div class="db-ex-row" draggable="true"
+            <div class="db-ex-row" draggable="true" data-muscle="${m}" data-cat="${cat}" data-name="${e}"
                  ondragstart="dbDragStart(event,'${m}','${cat}','${e}')"
                  ondragend="dbDragEnd(event)">
               <span class="db-handle">⠿</span>
@@ -1030,6 +1030,7 @@ function manageDB(){
       <button class="m-cancel" onclick="closeModal()">關閉</button>
       <button class="m-ok" onclick="addMuscleFromSettings()">＋ 新增肌群</button>
     </div>`);
+  addDbTouchDrag();
 }
 function dbDragStart(event,m,cat,name){
   _dbDrag={type:'ex',m,cat,name};
@@ -1139,7 +1140,7 @@ function editMusclePins(){
                ondragleave="pinDragLeave(event)"
                ondrop="pinDrop(event,'${m}')">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <span style="color:var(--muted);font-size:16px;cursor:grab;user-select:none;flex-shrink:0">⠿</span>
+        <span class="pin-handle" style="color:var(--muted);font-size:16px;cursor:grab;user-select:none;flex-shrink:0">⠿</span>
         <input type="checkbox" id="pin-cb-${m}" ${checked?'checked':''} onchange="pinToggle('${m}')" style="width:18px;height:18px;accent-color:var(--coral);flex-shrink:0">
         <span style="font-size:14px;color:var(--text);font-weight:500">${m}</span>
       </label>
@@ -1157,6 +1158,7 @@ function editMusclePins(){
       <button class="m-cancel" onclick="closeModal()">取消</button>
       <button class="m-ok" onclick="saveMusclePinsFromModal()">儲存</button>
     </div>`);
+  addPinTouchDrag();
 }
 function pinDragStart(event,m){
   _pinDrag=m;
@@ -1341,6 +1343,155 @@ function showStatus(msg){const el=document.getElementById('backup-status');el.te
 
 function showModal(title,body){document.getElementById('modal-title').textContent=title;document.getElementById('modal-title-tags').innerHTML='';document.getElementById('modal-body').innerHTML=body;document.getElementById('modal').style.display='flex'}
 function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').style.display='none'}
+
+// ── iOS Touch Drag（替代 HTML5 draggable，因 iOS Safari 不支援）──
+function addPinTouchDrag(){
+  const list=document.getElementById('pin-list');
+  if(!list||list._pinTouchAdded)return;
+  list._pinTouchAdded=true;
+  let dragEl=null,ghost=null,offsetY=0,lastTarget=null;
+  list.addEventListener('touchstart',e=>{
+    const handle=e.target.closest('.pin-handle');
+    if(!handle)return;
+    e.preventDefault();
+    dragEl=handle.closest('.pin-row');
+    if(!dragEl)return;
+    const rect=dragEl.getBoundingClientRect();
+    offsetY=e.touches[0].clientY-rect.top;
+    ghost=dragEl.cloneNode(true);
+    ghost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:9999;pointer-events:none;opacity:.85;border-radius:10px;background:var(--cream);padding:0 12px;box-sizing:border-box;`;
+    document.body.appendChild(ghost);
+    dragEl.style.opacity='.3';
+  },{passive:false});
+  list.addEventListener('touchmove',e=>{
+    if(!dragEl||!ghost)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    ghost.style.top=(t.clientY-offsetY)+'px';
+    ghost.style.display='none';
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    ghost.style.display='';
+    const target=el?.closest('.pin-row');
+    list.querySelectorAll('.pin-row').forEach(r=>r.classList.remove('pin-drop-hover'));
+    lastTarget=(target&&target!==dragEl)?target:null;
+    if(lastTarget)lastTarget.classList.add('pin-drop-hover');
+  },{passive:false});
+  list.addEventListener('touchend',e=>{
+    if(!dragEl)return;
+    if(ghost){ghost.remove();ghost=null;}
+    dragEl.style.opacity='';
+    list.querySelectorAll('.pin-row').forEach(r=>r.classList.remove('pin-drop-hover'));
+    if(lastTarget&&lastTarget!==dragEl)list.insertBefore(dragEl,lastTarget);
+    dragEl=null;lastTarget=null;
+  });
+}
+function addDbTouchDrag(){
+  const body=document.getElementById('modal-body');
+  if(!body||body._dbTouchAdded)return;
+  body._dbTouchAdded=true;
+  // ── Exercise rows（db-ex-row → db-cat-zone）──
+  let exDrag=null,exGhost=null,exOffsetY=0,exTarget=null;
+  body.addEventListener('touchstart',e=>{
+    const handle=e.target.closest('.db-ex-row .db-handle');
+    if(!handle)return;
+    e.preventDefault();
+    exDrag=handle.closest('.db-ex-row');
+    if(!exDrag)return;
+    const rect=exDrag.getBoundingClientRect();
+    exOffsetY=e.touches[0].clientY-rect.top;
+    exGhost=exDrag.cloneNode(true);
+    exGhost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:9999;pointer-events:none;opacity:.85;background:var(--cream);border-radius:8px;`;
+    document.body.appendChild(exGhost);
+    exDrag.style.opacity='.3';
+  },{passive:false});
+  body.addEventListener('touchmove',e=>{
+    if(!exDrag||!exGhost)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    exGhost.style.top=(t.clientY-exOffsetY)+'px';
+    exGhost.style.display='none';
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    exGhost.style.display='';
+    const zone=el?.closest('.db-cat-zone');
+    body.querySelectorAll('.db-cat-zone').forEach(z=>z.classList.remove('drop-hover'));
+    exTarget=zone||null;
+    if(exTarget)exTarget.classList.add('drop-hover');
+  },{passive:false});
+  body.addEventListener('touchend',e=>{
+    if(!exDrag)return;
+    if(exGhost){exGhost.remove();exGhost=null;}
+    exDrag.style.opacity='';
+    body.querySelectorAll('.db-cat-zone').forEach(z=>z.classList.remove('drop-hover'));
+    if(exTarget){
+      const toM=exTarget.dataset.muscle,toC=exTarget.dataset.cat;
+      const fromM=exDrag.dataset.muscle,fromC=exDrag.dataset.cat,name=exDrag.dataset.name;
+      if(!(fromM===toM&&fromC===toC)){
+        const db=loadDB();
+        db[fromM][fromC]=db[fromM][fromC].filter(ex=>ex!==name);
+        if(!db[toM][toC])db[toM][toC]=[];
+        if(!db[toM][toC].includes(name))db[toM][toC].push(name);
+        saveDB(db);
+        showToast(`「${name}」→ ${toM} › ${toC}`);
+        manageDB();
+      }
+    }
+    exDrag=null;exTarget=null;
+  });
+  // ── Muscle sections（db-muscle-hd → db-section）──
+  let musDrag=null,musGhost=null,musOffsetY=0,musTarget=null;
+  body.addEventListener('touchstart',e=>{
+    const handle=e.target.closest('.db-muscle-hd .db-handle');
+    if(!handle)return;
+    e.preventDefault();
+    musDrag=handle.closest('.db-section');
+    if(!musDrag)return;
+    const rect=musDrag.getBoundingClientRect();
+    musOffsetY=e.touches[0].clientY-rect.top;
+    musGhost=musDrag.cloneNode(true);
+    musGhost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:9999;pointer-events:none;opacity:.85;background:var(--cream);border-radius:12px;`;
+    document.body.appendChild(musGhost);
+    musDrag.style.opacity='.4';
+  },{passive:false});
+  body.addEventListener('touchmove',e=>{
+    if(!musDrag||!musGhost)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    musGhost.style.top=(t.clientY-musOffsetY)+'px';
+    musGhost.style.display='none';
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    musGhost.style.display='';
+    const section=el?.closest('.db-section');
+    body.querySelectorAll('.db-section').forEach(s=>s.classList.remove('section-drop-hover'));
+    musTarget=(section&&section!==musDrag)?section:null;
+    if(musTarget)musTarget.classList.add('section-drop-hover');
+  },{passive:false});
+  body.addEventListener('touchend',e=>{
+    if(!musDrag)return;
+    if(musGhost){musGhost.remove();musGhost=null;}
+    musDrag.style.opacity='';
+    body.querySelectorAll('.db-section').forEach(s=>s.classList.remove('section-drop-hover'));
+    if(musTarget){
+      const fromM=musDrag.dataset.muscle,toM=musTarget.dataset.muscle;
+      if(fromM&&toM&&fromM!==toM){
+        const db=loadDB();
+        const keys=Object.keys(db);
+        const fi=keys.indexOf(fromM);
+        if(fi!==-1){
+          keys.splice(fi,1);
+          const ti2=keys.indexOf(toM);
+          if(ti2!==-1){
+            keys.splice(ti2,0,fromM);
+            const newDb={};keys.forEach(k=>newDb[k]=db[k]);
+            saveDB(newDb);
+            showToast(`「${fromM}」已移至「${toM}」前面`);
+            manageDB();
+          }
+        }
+      }
+    }
+    musDrag=null;musTarget=null;
+  });
+}
 
 requestAnimationFrame(()=>renderCal());
 </script>
