@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="訓練紀錄">
 <link rel="apple-touch-icon" href="1.jpg">
-<title>訓練紀錄</title>
+<title>PROFIT</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -159,6 +159,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .db-ex-row.dragging{opacity:.3;background:var(--cream)}
 .db-section.dragging{opacity:.4}
 .db-section.section-drop-hover{outline:2px dashed var(--coral);border-radius:12px;background:var(--coral-l)}
+.db-insert-line{height:3px;background:var(--coral);border-radius:2px;margin:2px 4px;flex-shrink:0;}
 .db-handle{color:var(--muted);font-size:16px;user-select:none;flex-shrink:0}
 .db-ex-lbl{flex:1;font-size:14px;color:var(--text);cursor:pointer}
 .db-ex-lbl:hover{text-decoration:underline dotted;text-underline-offset:3px}
@@ -983,16 +984,14 @@ function showPRChart(name,exMap,fromRender){
 }
 
 let _dbDrag=null;
-function manageDB(){
+function manageDB(restoreScroll=0){
   const db=loadDB();
   const html=Object.entries(db).map(([m,cats])=>`
     <div class="db-section" data-muscle="${m}"
          ondragover="dbSectionDragOver(event)"
          ondragleave="dbSectionDragLeave(event)"
          ondrop="dbSectionDrop(event,'${m}')">
-      <div class="db-muscle-hd" draggable="true"
-           ondragstart="dbMuscleDragStart(event,'${m}')"
-           ondragend="dbMuscleDragEnd(event)">
+      <div class="db-muscle-hd">
         <span style="display:flex;align-items:center;gap:8px">
           <span class="db-handle" style="cursor:grab;font-size:18px">⠿</span>
           <span>${m}</span>
@@ -1023,7 +1022,7 @@ function manageDB(){
         </div>`).join('')}
     </div>`).join('');
   showModal('動作資料庫',`
-    <div style="max-height:58vh;overflow-y:auto;margin:0 -4px 10px;padding:0 4px">
+    <div id="db-scroll-list" style="max-height:58vh;overflow-y:auto;margin:0 -4px 10px;padding:0 4px">
       ${html}
     </div>
     <div class="modal-btns">
@@ -1031,6 +1030,7 @@ function manageDB(){
       <button class="m-ok" onclick="addMuscleFromSettings()">＋ 新增肌群</button>
     </div>`);
   addDbTouchDrag();
+  if(restoreScroll){const sc=document.getElementById('db-scroll-list');if(sc)sc.scrollTop=restoreScroll;}
 }
 function dbDragStart(event,m,cat,name){
   _dbDrag={type:'ex',m,cat,name};
@@ -1409,6 +1409,13 @@ function addDbTouchDrag(){
     e.preventDefault();
     const t=e.touches[0];
     exGhost.style.top=(t.clientY-exOffsetY)+'px';
+    // auto-scroll
+    const sc=document.getElementById('db-scroll-list');
+    if(sc){
+      const sr=sc.getBoundingClientRect(),edgeZone=60,scrollSpeed=10;
+      if(t.clientY<sr.top+edgeZone)sc.scrollTop-=scrollSpeed;
+      else if(t.clientY>sr.bottom-edgeZone)sc.scrollTop+=scrollSpeed;
+    }
     exGhost.style.display='none';
     const el=document.elementFromPoint(t.clientX,t.clientY);
     exGhost.style.display='';
@@ -1426,70 +1433,102 @@ function addDbTouchDrag(){
       const toM=exTarget.dataset.muscle,toC=exTarget.dataset.cat;
       const fromM=exDrag.dataset.muscle,fromC=exDrag.dataset.cat,name=exDrag.dataset.name;
       if(!(fromM===toM&&fromC===toC)){
+        const sc=document.getElementById('db-scroll-list');
+        const savedScroll=sc?sc.scrollTop:0;
         const db=loadDB();
         db[fromM][fromC]=db[fromM][fromC].filter(ex=>ex!==name);
         if(!db[toM][toC])db[toM][toC]=[];
         if(!db[toM][toC].includes(name))db[toM][toC].push(name);
         saveDB(db);
         showToast(`「${name}」→ ${toM} › ${toC}`);
-        manageDB();
+        manageDB(savedScroll);
       }
     }
     exDrag=null;exTarget=null;
   });
   // ── Muscle sections（db-muscle-hd → db-section）──
-  let musDrag=null,musGhost=null,musOffsetY=0,musTarget=null;
+  let musDrag=null,musGhost=null,musOffsetY=0,musInsertBefore=null,musInsertLine=null;
   body.addEventListener('touchstart',e=>{
     const handle=e.target.closest('.db-muscle-hd .db-handle');
     if(!handle)return;
     e.preventDefault();
     musDrag=handle.closest('.db-section');
     if(!musDrag)return;
-    const rect=musDrag.getBoundingClientRect();
+    const hd=musDrag.querySelector('.db-muscle-hd');
+    const rect=hd.getBoundingClientRect();
     musOffsetY=e.touches[0].clientY-rect.top;
-    musGhost=musDrag.cloneNode(true);
-    musGhost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:9999;pointer-events:none;opacity:.85;background:var(--cream);border-radius:12px;`;
+    musGhost=hd.cloneNode(true);
+    musGhost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:9999;pointer-events:none;opacity:.9;background:var(--card);border-radius:12px;border:.5px solid var(--border);padding:0 12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);`;
     document.body.appendChild(musGhost);
-    musDrag.style.opacity='.4';
+    musDrag.style.opacity='.35';
+    musInsertLine=document.createElement('div');
+    musInsertLine.className='db-insert-line';
+    musInsertBefore=null;
   },{passive:false});
   body.addEventListener('touchmove',e=>{
     if(!musDrag||!musGhost)return;
     e.preventDefault();
     const t=e.touches[0];
     musGhost.style.top=(t.clientY-musOffsetY)+'px';
-    musGhost.style.display='none';
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    musGhost.style.display='';
-    const section=el?.closest('.db-section');
-    body.querySelectorAll('.db-section').forEach(s=>s.classList.remove('section-drop-hover'));
-    musTarget=(section&&section!==musDrag)?section:null;
-    if(musTarget)musTarget.classList.add('section-drop-hover');
+    // auto-scroll
+    const sc=document.getElementById('db-scroll-list');
+    if(sc){
+      const sr=sc.getBoundingClientRect(),edgeZone=60,scrollSpeed=10;
+      if(t.clientY<sr.top+edgeZone)sc.scrollTop-=scrollSpeed;
+      else if(t.clientY>sr.bottom-edgeZone)sc.scrollTop+=scrollSpeed;
+    }
+    // 計算插入位置：找第一個「中心點在手指以下」的 section（排除自己）
+    const sections=Array.from(sc?sc.querySelectorAll('.db-section'):body.querySelectorAll('.db-section')).filter(s=>s!==musDrag);
+    let newInsertBefore=null;
+    for(const sec of sections){
+      const r=sec.getBoundingClientRect();
+      if(t.clientY<r.top+r.height/2){newInsertBefore=sec;break;}
+    }
+    // 只在插入點改變時才移動 DOM，避免抖動
+    if(newInsertBefore!==musInsertBefore){
+      musInsertBefore=newInsertBefore;
+      if(musInsertBefore){
+        sc.insertBefore(musInsertLine,musInsertBefore);
+      } else {
+        sc.appendChild(musInsertLine);
+      }
+    }
   },{passive:false});
   body.addEventListener('touchend',e=>{
     if(!musDrag)return;
     if(musGhost){musGhost.remove();musGhost=null;}
+    if(musInsertLine&&musInsertLine.parentNode){musInsertLine.parentNode.removeChild(musInsertLine);}
+    musInsertLine=null;
     musDrag.style.opacity='';
-    body.querySelectorAll('.db-section').forEach(s=>s.classList.remove('section-drop-hover'));
-    if(musTarget){
-      const fromM=musDrag.dataset.muscle,toM=musTarget.dataset.muscle;
-      if(fromM&&toM&&fromM!==toM){
+    if(musInsertBefore!==undefined){
+      const fromM=musDrag.dataset.muscle;
+      const toM=musInsertBefore?musInsertBefore.dataset.muscle:null;
+      if(fromM){
+        const sc=document.getElementById('db-scroll-list');
+        const savedScroll=sc?sc.scrollTop:0;
         const db=loadDB();
         const keys=Object.keys(db);
         const fi=keys.indexOf(fromM);
         if(fi!==-1){
           keys.splice(fi,1);
-          const ti2=keys.indexOf(toM);
-          if(ti2!==-1){
-            keys.splice(ti2,0,fromM);
-            const newDb={};keys.forEach(k=>newDb[k]=db[k]);
+          if(toM){
+            const ti2=keys.indexOf(toM);
+            if(ti2!==-1)keys.splice(ti2,0,fromM);
+            else keys.push(fromM);
+          } else {
+            keys.push(fromM); // 插到最後
+          }
+          const newDb={};keys.forEach(k=>newDb[k]=db[k]);
+          const changed=JSON.stringify(Object.keys(db))!==JSON.stringify(Object.keys(newDb));
+          if(changed){
             saveDB(newDb);
-            showToast(`「${fromM}」已移至「${toM}」前面`);
-            manageDB();
+            showToast(toM?`「${fromM}」已移至「${toM}」前面`:`「${fromM}」已移至最後`);
+            manageDB(savedScroll);
           }
         }
       }
     }
-    musDrag=null;musTarget=null;
+    musDrag=null;musInsertBefore=null;
   });
 }
 
