@@ -397,6 +397,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
     </div>
     <div class="settings-section">
       <div class="settings-card">
+        <div class="settings-row" onclick="pushAllToCloud()">
+          <div class="settings-row-left">
+            <div class="settings-icon" style="background:#E8F4FD;color:#2E86C1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+            <div><div class="settings-row-title">強制同步到雲端</div><div class="settings-row-sub">登入時會自動同步，這裡可手動補推</div></div>
+          </div>
+        </div>
         <div class="settings-row" onclick="doLogout()">
           <div class="settings-row-left">
             <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 13v-2H7V8l-5 4 5 4v-3z"/><path d="M20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg></div>
@@ -470,9 +476,10 @@ function clearLocalCache() {
   Object.keys(localStorage).filter(k => k.startsWith('wt_draft_')).forEach(k => localStorage.removeItem(k));
 }
 
-// ── Pull from Supabase on login ──
+// ── Pull from Supabase on login (bidirectional merge) ──
 async function pullFromCloud() {
   const uid = _user.id;
+  const localLogs = JSON.parse(localStorage.getItem('wt_logs') || '[]');
   const [logs, db, settings, profile, inbody, drafts] = await Promise.all([
     _sb.from('workout_logs').select('date,exercises,note').eq('user_id', uid),
     _sb.from('workout_db').select('data').eq('user_id', uid).maybeSingle(),
@@ -483,17 +490,32 @@ async function pullFromCloud() {
   ]);
   const errs = [logs, db, settings, profile, inbody, drafts].map(r => r.error).filter(Boolean);
   if (errs.length) { showToast('⚠️ 雲端載入失敗：' + errs[0].message); return; }
-  if (logs.data?.length) localStorage.setItem('wt_logs', JSON.stringify(logs.data));
+
+  // Merge logs: cloud wins for same date; local-only dates get pushed up to cloud
+  const cloudDates = new Set((logs.data || []).map(l => l.date));
+  const localOnly = localLogs.filter(l => !cloudDates.has(l.date));
+  const merged = [...(logs.data || []), ...localOnly];
+  if (merged.length) localStorage.setItem('wt_logs', JSON.stringify(merged));
+  if (localOnly.length) {
+    _sb.from('workout_logs').upsert(
+      localOnly.map(l => ({ user_id: uid, date: l.date, exercises: l.exercises || [], note: l.note || '' })),
+      { onConflict: 'user_id,date' }
+    ).then(({ error }) => { if (error) showToast('⚠️ 同步失敗：' + error.message); });
+  }
+
   if (db.data?.data) localStorage.setItem('wt_db', JSON.stringify(db.data.data));
+  else syncDB();
   if (settings.data?.data) {
     const s = settings.data.data;
     if (s.pins != null) localStorage.setItem('wt_pins', JSON.stringify(s.pins));
     if (s.assist != null) localStorage.setItem('wt_assist', JSON.stringify(s.assist));
     if (s.muscle_pins != null) localStorage.setItem('wt_muscle_pins', JSON.stringify(s.muscle_pins));
     if (s.week_goal != null) localStorage.setItem('wt_week_goal', s.week_goal);
-  }
+  } else { syncSettings(); }
   if (profile.data?.data) localStorage.setItem('wt_profile', JSON.stringify(profile.data.data));
+  else syncProfile();
   if (inbody.data?.length) localStorage.setItem('wt_inbody', JSON.stringify(inbody.data.map(r => ({ date: r.date, ...r.data }))));
+  else syncInBody();
   if (drafts.data?.length) drafts.data.forEach(d => localStorage.setItem('wt_draft_' + d.date, JSON.stringify({ session: d.session, muscle: d.muscle, note: d.note })));
   cleanupEmptyDrafts();
 }
@@ -554,6 +576,22 @@ async function syncDraft(ds, data) {
     const { error } = await _sb.from('workout_drafts').delete().eq('user_id', _user.id).eq('date', ds);
     if (error) showToast('⚠️ 同步失敗：' + error.message);
   }
+}
+
+async function pushAllToCloud() {
+  if (!_user) { showToast('請先登入'); return; }
+  const logs = loadLogs();
+  const errors = [];
+  if (logs.length) {
+    const { error } = await _sb.from('workout_logs').upsert(
+      logs.map(l => ({ user_id: _user.id, date: l.date, exercises: l.exercises || [], note: l.note || '' })),
+      { onConflict: 'user_id,date' }
+    );
+    if (error) errors.push(error.message);
+  }
+  await Promise.all([syncDB(), syncSettings(), syncProfile(), syncInBody()]);
+  if (errors.length) showToast('⚠️ 同步失敗：' + errors[0]);
+  else showToast(`✓ 已同步 ${logs.length} 筆訓練紀錄`);
 }
 
 // ── App init ──
