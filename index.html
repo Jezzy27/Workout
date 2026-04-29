@@ -460,7 +460,7 @@ async function doLogin() {
   btn.textContent = '請稍候…'; btn.disabled = true;
   const fn = _loginMode === 'login'
     ? _sb.auth.signInWithPassword({ email, password: pw })
-    : _sb.auth.signUp({ email, password: pw });
+    : _sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: 'https://jezzy27.github.io/Workout/' } });
   const { error } = await fn;
   btn.disabled = false;
   btn.textContent = _loginMode === 'login' ? '登入' : '註冊';
@@ -616,8 +616,8 @@ async function initApp() {
     } else if (event === 'SIGNED_OUT') {
       _user = null;
       clearLocalCache();
-      document.getElementById('s-login').classList.add('active');
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('s-login').classList.add('active');
     }
   });
 }
