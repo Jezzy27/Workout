@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="1.jpg">
 <title>PROFIT</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -19,8 +20,8 @@ html,body{height:100%;background:#F0EDE8}
 body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;display:flex;justify-content:center;align-items:flex-start}
 #app{width:100%;max-width:430px;height:100dvh;background:var(--cream);display:flex;flex-direction:column;position:relative;overflow:hidden}
 .screen{display:none;flex-direction:column;flex:1;height:100dvh;overflow:hidden;position:relative}.screen.active{display:flex}
-.scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;padding-bottom:calc(90px + env(safe-area-inset-bottom))}
-.tabs-wrap{background:transparent;padding-bottom:env(safe-area-inset-bottom);position:absolute;bottom:0;left:0;right:0}.tabs{display:flex;padding:10px 12px;gap:4px;border-radius:24px;background:var(--cream);box-shadow:0 2px 20px rgba(0,0,0,0.10);border:.5px solid var(--border);margin:10px 16px}
+.scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.tabs-wrap{background:transparent;padding-bottom:env(safe-area-inset-bottom);position:absolute;bottom:0;left:0;right:0}.tabs-spacer{height:calc(97px + env(safe-area-inset-bottom));flex-shrink:0;pointer-events:none}.tabs{display:flex;padding:10px 12px;gap:4px;border-radius:24px;background:var(--cream);box-shadow:0 2px 20px rgba(0,0,0,0.10);border:.5px solid var(--border);margin:10px 16px}
 .tab{flex:1;padding:9px 0;border:none;background:transparent;font-size:12px;color:var(--muted);cursor:pointer;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:3px}
 .tab.on{background:var(--coral-l);color:var(--coral)}.ti{display:flex;align-items:center;justify-content:center;width:22px;height:22px}
 .nav{display:flex;align-items:center;justify-content:space-between;padding:max(20px,env(safe-area-inset-top)) 20px 10px}
@@ -34,11 +35,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .cal-grid{padding:0 24px 20px;display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .cal-dow{text-align:center;font-size:11px;color:var(--muted);padding:4px 0}
 .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px;color:var(--text);cursor:pointer;position:relative;transition:background .15s}
-.cal-day:active{background:var(--coral-l)}.cal-day.other{color:rgba(158,142,133,0.4);pointer-events:none}
+.cal-day:active{background:var(--coral-l)}.cal-day.other{color:rgba(158,142,133,0.4);pointer-events:none}.cal-day.other.checked{background:rgba(224,90,58,0.3);color:rgba(255,255,255,0.6)}.cal-day.other.draft{border:1.5px solid rgba(224,90,58,0.4)}
 .cal-day.today{font-weight:500;color:var(--coral)}.cal-day.today::after{content:'';width:4px;height:4px;border-radius:50%;background:var(--coral);position:absolute;bottom:3px}
 .cal-day.checked{background:var(--coral);color:#fff}
 .cal-day.checked.today::after{background:rgba(255,255,255,0.7)}
-.cal-day.draft{background:rgba(224,90,58,0.25);color:var(--text)}
+.cal-day.draft{border:1.5px solid var(--coral);color:var(--text)}
 .stats-row{display:flex;gap:12px;padding:16px 24px 4px}
 .stat-card{flex:1;background:var(--card);border-radius:16px;padding:14px 16px;border:.5px solid var(--border);text-align:center}
 .stat-num{font-size:28px;font-weight:600;color:var(--coral);line-height:1}
@@ -108,7 +109,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .fchip.on{background:var(--coral-l);color:var(--coral);border-color:var(--coral-m)}
 .chart-card{margin:8px 20px;background:var(--card);border-radius:16px;padding:14px;border:.5px solid var(--border)}
 .chart-card-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:10px}
-.pr-cards{padding:0 20px;display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
+.pr-cards{padding:0 20px;display:flex;flex-direction:column;gap:10px}
 .prcard{background:var(--card);border-radius:14px;padding:13px 15px;border:.5px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;-webkit-tap-highlight-color:transparent}
 .prcard.selected{border-color:var(--coral);background:var(--coral-l)}
 .prcard-left .prname{font-size:15px;font-weight:500;color:var(--text)}.prcard-left .prdate{font-size:12px;color:var(--muted);margin-top:2px}
@@ -147,6 +148,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .modal-item-name{font-size:14px;color:var(--text)}.modal-item-del{font-size:13px;color:var(--coral);background:none;border:none;cursor:pointer;padding:4px 8px}
 .toast{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:13px;padding:10px 20px;border-radius:20px;white-space:nowrap;z-index:200;opacity:0;transition:opacity .2s}
 .toast.show{opacity:1}
+.login-screen{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:var(--cream);padding:32px 28px}.login-screen.active{display:flex}
+.login-logo{font-size:36px;font-weight:700;color:var(--coral);letter-spacing:-1px;margin-bottom:6px}
+.login-sub{font-size:14px;color:var(--muted);margin-bottom:40px}
+.login-card{width:100%;max-width:400px;background:var(--card);border-radius:20px;border:.5px solid var(--border);padding:24px}
+.login-tab-row{display:flex;gap:0;margin-bottom:20px;background:var(--cream);border-radius:12px;padding:3px}
+.login-tab{flex:1;padding:8px;border:none;background:transparent;font-size:14px;color:var(--muted);border-radius:10px;cursor:pointer}
+.login-tab.on{background:var(--card);color:var(--text);font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.login-input{width:100%;padding:13px 14px;border:.5px solid var(--border);border-radius:12px;font-size:16px;background:var(--cream);color:var(--text);outline:none;margin-bottom:10px;-webkit-appearance:none;appearance:none}
+.login-input:focus{border-color:var(--coral)}
+.login-btn{width:100%;padding:14px;border:none;border-radius:12px;background:var(--coral);color:#fff;font-size:16px;font-weight:500;cursor:pointer;margin-top:4px}
+.login-err{font-size:13px;color:var(--coral);margin-top:8px;text-align:center;min-height:18px}
 /* 動作資料庫拖曳編輯器 */
 .db-section{border:.5px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
 .db-muscle-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#F0EDE8;font-size:15px;font-weight:500;color:var(--text)}
@@ -184,8 +196,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 <body>
 <div id="app">
 
+<!-- LOGIN -->
+<div id="s-login" class="login-screen">
+  <div class="login-logo">PROFIT</div>
+  <div class="login-sub">訓練紀錄</div>
+  <div class="login-card">
+    <div class="login-tab-row">
+      <button class="login-tab on" id="lt-login" onclick="switchLoginTab('login')">登入</button>
+      <button class="login-tab" id="lt-signup" onclick="switchLoginTab('signup')">註冊</button>
+    </div>
+    <input class="login-input" id="login-email" type="email" placeholder="Email" autocomplete="email">
+    <input class="login-input" id="login-pw" type="password" placeholder="密碼" autocomplete="current-password">
+    <button class="login-btn" id="login-btn" onclick="doLogin()">登入</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
 <!-- HOME -->
-<div id="s-home" class="screen active">
+<div id="s-home" class="screen">
   <div class="scroll">
     <div class="cal-header">
       <h1>訓練日記</h1>
@@ -215,7 +243,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
     </div>
     <div style="height:12px"></div>
   </div>
-  <div class="tabs-wrap"><div class="tabs">
+  <div class="tabs-spacer"></div><div class="tabs-wrap"><div class="tabs">
     <button class="tab on" onclick="goTab('s-home',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>日曆</button>
     <button class="tab" onclick="goTab('s-pr',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="17,7 21,7 21,11"/></svg></span>趨勢</button>
     <button class="tab" onclick="goTab('s-inbody',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg></span>InBody</button>
@@ -258,15 +286,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 
 <!-- PR -->
 <div id="s-pr" class="screen">
-  <div class="pr-header"><h1>進步趨勢</h1></div>
-  <div class="filter-row" id="pr-filters"></div>
-  <div class="chart-card" id="pr-chart-card" style="display:none">
-    <div class="chart-card-title" id="pr-chart-title"></div>
-    <canvas id="prChart" height="150"></canvas>
+  <div class="scroll">
+    <div class="pr-header"><h1>進步趨勢</h1></div>
+    <div class="filter-row" id="pr-filters"></div>
+    <div class="chart-card" id="pr-chart-card" style="display:none">
+      <div class="chart-card-title" id="pr-chart-title"></div>
+      <canvas id="prChart" height="150"></canvas>
+    </div>
+    <div style="padding:10px 20px 6px;font-size:13px;color:var(--muted)">點選動作查看趨勢</div>
+    <div class="pr-cards" id="pr-cards"></div>
   </div>
-  <div style="padding:10px 20px 6px;font-size:13px;color:var(--muted)">點選動作查看趨勢</div>
-  <div class="scroll"><div class="pr-cards" id="pr-cards"></div></div>
-  <div class="tabs-wrap"><div class="tabs">
+  <div class="tabs-spacer"></div><div class="tabs-wrap"><div class="tabs">
     <button class="tab" onclick="goTab('s-home',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>日曆</button>
     <button class="tab on" onclick="goTab('s-pr',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="17,7 21,7 21,11"/></svg></span>趨勢</button>
     <button class="tab" onclick="goTab('s-inbody',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg></span>InBody</button>
@@ -284,7 +314,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
     <div id="ib-charts"></div>
     <div style="height:20px"></div>
   </div>
-  <div class="tabs-wrap"><div class="tabs">
+  <div class="tabs-spacer"></div><div class="tabs-wrap"><div class="tabs">
     <button class="tab" onclick="goTab('s-home',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>日曆</button>
     <button class="tab" onclick="goTab('s-pr',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="17,7 21,7 21,11"/></svg></span>趨勢</button>
     <button class="tab on" onclick="goTab('s-inbody',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg></span>InBody</button>
@@ -302,7 +332,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
       <div class="settings-card">
         <div class="settings-row" onclick="editProfile()">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#EEF0FA">👤</div>
+            <div class="settings-icon" style="background:#EEF0FA;color:#5C6BC0"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8z"/></svg></div>
             <div><div class="settings-row-title">基本資料</div><div class="settings-row-sub" id="profile-sub">尚未設定</div></div>
           </div>
           <span class="settings-arrow">›</span>
@@ -314,14 +344,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
       <div class="settings-card">
         <div class="settings-row" onclick="exportData()">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#E6F4ED">💾</div>
+            <div class="settings-icon" style="background:#E6F4ED;color:#3DAA78"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 0 1 .4 1 1v8.6l2.3-2.3a1 1 0 0 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 11.6V3c0-.6.4-1 1-1z"/><path d="M3 17a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg></div>
             <div><div class="settings-row-title">匯出備份</div><div class="settings-row-sub">下載 JSON 檔案到手機</div></div>
           </div>
           <span class="settings-arrow">›</span>
         </div>
         <div class="settings-row" onclick="document.getElementById('import-input').click()">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#FAEAE5">📂</div>
+            <div class="settings-icon" style="background:#FAEAE5;color:#C2623A"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c-.6 0-1-.4-1-1V4.4L8.7 6.7a1 1 0 0 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L13 4.4V13c0 .6-.4 1-1 1z"/><path d="M3 17a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg></div>
             <div><div class="settings-row-title">匯入備份</div><div class="settings-row-sub">從 JSON 檔案還原資料</div></div>
           </div>
           <span class="settings-arrow">›</span>
@@ -334,20 +364,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
       <div class="settings-card">
         <div class="settings-row" style="cursor:default">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#F1EFE8">📊</div>
+            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="5" height="9" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="4" width="5" height="17" rx="1"/></svg></div>
             <div><div class="settings-row-title">訓練紀錄</div><div class="settings-row-sub" id="stats-logs">載入中...</div></div>
           </div>
         </div>
         <div class="settings-row" onclick="manageDB()">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#F1EFE8">🏋️</div>
+            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="10.5" width="4" height="3" rx="1.2"/><rect x="19" y="10.5" width="4" height="3" rx="1.2"/><rect x="5" y="8.5" width="3" height="7" rx="1"/><rect x="16" y="8.5" width="3" height="7" rx="1"/><rect x="8" y="11" width="8" height="2" rx="1"/></svg></div>
             <div><div class="settings-row-title">動作資料庫</div><div class="settings-row-sub" id="stats-db">載入中...</div></div>
           </div>
           <span class="settings-arrow">›</span>
         </div>
         <div class="settings-row" style="cursor:default">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#F1EFE8">🕐</div>
+            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7v5.5l3.5 3.5" stroke="rgba(255,255,255,0.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
             <div><div class="settings-row-title">上次備份</div><div class="settings-row-sub" id="stats-backup">從未備份</div></div>
           </div>
         </div>
@@ -358,16 +388,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
       <div class="settings-card">
         <div class="settings-row" onclick="clearAllData()">
           <div class="settings-row-left">
-            <div class="settings-icon" style="background:#FCE8E8">🗑️</div>
+            <div class="settings-icon" style="background:#FCE8E8;color:#D44040"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 3h8a1 1 0 0 1 1 1v1H7V4a1 1 0 0 1 1-1z"/><rect x="2" y="6" width="20" height="2.5" rx="1.2"/><path d="M5 9.5l1.2 11.5a1 1 0 0 0 1 .9h9.6a1 1 0 0 0 1-.9L19 9.5H5z"/></svg></div>
             <div><div class="settings-row-title" style="color:var(--coral)">清除所有資料</div><div class="settings-row-sub">刪除全部訓練紀錄</div></div>
           </div>
           <span class="settings-arrow">›</span>
         </div>
       </div>
     </div>
+    <div class="settings-section">
+      <div class="settings-card">
+        <div class="settings-row" onclick="doLogout()">
+          <div class="settings-row-left">
+            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 13v-2H7V8l-5 4 5 4v-3z"/><path d="M20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg></div>
+            <div><div class="settings-row-title">登出</div><div class="settings-row-sub" id="settings-email"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div style="height:20px"></div>
   </div>
-  <div class="tabs-wrap"><div class="tabs">
+  <div class="tabs-spacer"></div><div class="tabs-wrap"><div class="tabs">
     <button class="tab" onclick="goTab('s-home',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>日曆</button>
     <button class="tab" onclick="goTab('s-pr',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="17,7 21,7 21,11"/></svg></span>趨勢</button>
     <button class="tab" onclick="goTab('s-inbody',this)"><span class="ti"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg></span>InBody</button>
@@ -387,6 +427,146 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 </div>
 
 <script>
+// ── Supabase ──
+const _sb = supabase.createClient(
+  'https://owoqbbghsjwnhvvtizqn.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93b3FiYmdoc2p3bmh2dnRpenFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODk3ODUsImV4cCI6MjA5MjQ2NTc4NX0.ewh10Ess4ilgizJLp5uwZNx3Hplbpiqdzu9ot8diyXI'
+);
+let _user = null;
+
+// ── Auth UI ──
+let _loginMode = 'login';
+function switchLoginTab(mode) {
+  _loginMode = mode;
+  document.getElementById('lt-login').classList.toggle('on', mode === 'login');
+  document.getElementById('lt-signup').classList.toggle('on', mode === 'signup');
+  document.getElementById('login-btn').textContent = mode === 'login' ? '登入' : '註冊';
+  document.getElementById('login-pw').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  document.getElementById('login-err').textContent = '';
+}
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = '請填寫 Email 和密碼'; return; }
+  const btn = document.getElementById('login-btn');
+  btn.textContent = '請稍候…'; btn.disabled = true;
+  const fn = _loginMode === 'login'
+    ? _sb.auth.signInWithPassword({ email, password: pw })
+    : _sb.auth.signUp({ email, password: pw });
+  const { error } = await fn;
+  btn.disabled = false;
+  btn.textContent = _loginMode === 'login' ? '登入' : '註冊';
+  if (error) { errEl.textContent = error.message; return; }
+  if (_loginMode === 'signup') errEl.textContent = '✓ 確認信已寄出，請收信驗證';
+}
+async function doLogout() {
+  if (!confirm('確定要登出？')) return;
+  try { await _sb.auth.signOut(); } catch(e) { console.error(e); }
+}
+function clearLocalCache() {
+  ['wt_logs','wt_db','wt_pins','wt_assist','wt_muscle_pins','wt_profile','wt_inbody','wt_week_goal'].forEach(k => localStorage.removeItem(k));
+  Object.keys(localStorage).filter(k => k.startsWith('wt_draft_')).forEach(k => localStorage.removeItem(k));
+}
+
+// ── Pull from Supabase on login ──
+async function pullFromCloud() {
+  const uid = _user.id;
+  const [logs, db, settings, profile, inbody, drafts] = await Promise.all([
+    _sb.from('workout_logs').select('date,exercises,note').eq('user_id', uid),
+    _sb.from('workout_db').select('data').eq('user_id', uid).maybeSingle(),
+    _sb.from('workout_settings').select('data').eq('user_id', uid).maybeSingle(),
+    _sb.from('workout_profiles').select('data').eq('user_id', uid).maybeSingle(),
+    _sb.from('workout_inbody').select('date,data').eq('user_id', uid),
+    _sb.from('workout_drafts').select('date,muscle,session,note').eq('user_id', uid)
+  ]);
+  if (logs.data?.length) localStorage.setItem('wt_logs', JSON.stringify(logs.data));
+  if (db.data?.data) localStorage.setItem('wt_db', JSON.stringify(db.data.data));
+  if (settings.data?.data) {
+    const s = settings.data.data;
+    if (s.pins != null) localStorage.setItem('wt_pins', JSON.stringify(s.pins));
+    if (s.assist != null) localStorage.setItem('wt_assist', JSON.stringify(s.assist));
+    if (s.muscle_pins != null) localStorage.setItem('wt_muscle_pins', JSON.stringify(s.muscle_pins));
+    if (s.week_goal != null) localStorage.setItem('wt_week_goal', s.week_goal);
+  }
+  if (profile.data?.data) localStorage.setItem('wt_profile', JSON.stringify(profile.data.data));
+  if (inbody.data?.length) localStorage.setItem('wt_inbody', JSON.stringify(inbody.data.map(r => ({ date: r.date, ...r.data }))));
+  if (drafts.data?.length) drafts.data.forEach(d => localStorage.setItem('wt_draft_' + d.date, JSON.stringify({ session: d.session, muscle: d.muscle, note: d.note })));
+  cleanupEmptyDrafts();
+}
+
+function cleanupEmptyDrafts() {
+  Object.keys(localStorage).filter(k => k.startsWith('wt_draft_')).forEach(k => {
+    try {
+      const d = JSON.parse(localStorage.getItem(k));
+      if (!d) { localStorage.removeItem(k); return; }
+      const isEmpty = Object.keys(d.session || {}).length === 0 && !(d.note || '').trim();
+      if (isEmpty) { const ds = k.replace('wt_draft_', ''); clearDraft(ds); }
+    } catch(e) { localStorage.removeItem(k); }
+  });
+}
+
+// ── Sync to Supabase ──
+async function syncLog(log) {
+  if (!_user) return;
+  await _sb.from('workout_logs').upsert({ user_id: _user.id, date: log.date, exercises: log.exercises || [], note: log.note || '' }, { onConflict: 'user_id,date' });
+}
+async function deleteCloudLog(date) {
+  if (!_user) return;
+  await _sb.from('workout_logs').delete().eq('user_id', _user.id).eq('date', date);
+}
+async function syncDB() {
+  if (!_user) return;
+  await _sb.from('workout_db').upsert({ user_id: _user.id, data: loadDB(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+}
+async function syncSettings() {
+  if (!_user) return;
+  await _sb.from('workout_settings').upsert({ user_id: _user.id, data: { pins: loadPins(), assist: loadAssist(), muscle_pins: loadMusclePins(), week_goal: loadWeekGoal() }, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+}
+async function syncProfile() {
+  if (!_user) return;
+  await _sb.from('workout_profiles').upsert({ user_id: _user.id, data: loadProfile(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+}
+async function syncInBody() {
+  if (!_user) return;
+  const records = loadInBody();
+  await _sb.from('workout_inbody').delete().eq('user_id', _user.id);
+  if (records.length) await _sb.from('workout_inbody').insert(records.map(r => ({ user_id: _user.id, date: r.date, data: r })));
+}
+async function syncDraft(ds, data) {
+  if (!_user) return;
+  if (data) await _sb.from('workout_drafts').upsert({ user_id: _user.id, date: ds, session: data.session || {}, muscle: data.muscle || '', note: data.note || '', updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' });
+  else await _sb.from('workout_drafts').delete().eq('user_id', _user.id).eq('date', ds);
+}
+
+// ── App init ──
+async function initApp() {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) {
+    _user = session.user;
+    await pullFromCloud();
+    document.getElementById('s-login').classList.remove('active');
+    document.getElementById('s-home').classList.add('active');
+    renderCal();
+  } else {
+    document.getElementById('s-login').classList.add('active');
+  }
+  _sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN') {
+      _user = session.user;
+      await pullFromCloud();
+      document.getElementById('s-login').classList.remove('active');
+      document.getElementById('s-home').classList.add('active');
+      renderCal();
+    } else if (event === 'SIGNED_OUT') {
+      _user = null;
+      clearLocalCache();
+      document.getElementById('s-login').classList.add('active');
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    }
+  });
+}
 const DEFAULT_DB={
   '胸部':{'自由重量':['槓鈴臥推','上斜臥推'],'器械':['蝴蝶機夾胸','機械臥推','上斜機械']},
   '背部':{'自由重量':['槓鈴划船'],'器械':['滑輪下拉','坐姿划船','引體向上機']},
@@ -394,17 +574,17 @@ const DEFAULT_DB={
   '肩部':{'自由重量':['啞鈴肩推','俯身側平舉'],'器械':['繩索側平舉']}
 };
 function loadDB(){try{return JSON.parse(localStorage.getItem('wt_db'))||JSON.parse(JSON.stringify(DEFAULT_DB))}catch(e){return JSON.parse(JSON.stringify(DEFAULT_DB))}}
-function saveDB(d){try{localStorage.setItem('wt_db',JSON.stringify(d))}catch(e){}}
+function saveDB(d){try{localStorage.setItem('wt_db',JSON.stringify(d));syncDB();}catch(e){}}
 function loadLogs(){try{return JSON.parse(localStorage.getItem('wt_logs'))||[]}catch(e){return[]}}
 function saveLogs(d){try{localStorage.setItem('wt_logs',JSON.stringify(d))}catch(e){}}
 function loadPins(){try{return JSON.parse(localStorage.getItem('wt_pins'))||[]}catch(e){return[]}}
-function savePins(d){try{localStorage.setItem('wt_pins',JSON.stringify(d))}catch(e){}}
+function savePins(d){try{localStorage.setItem('wt_pins',JSON.stringify(d));syncSettings();}catch(e){}}
 function loadAssist(){try{return JSON.parse(localStorage.getItem('wt_assist'))||[]}catch(e){return[]}}
-function saveAssist(d){try{localStorage.setItem('wt_assist',JSON.stringify(d))}catch(e){}}
+function saveAssist(d){try{localStorage.setItem('wt_assist',JSON.stringify(d));syncSettings();}catch(e){}}
 function loadMusclePins(){try{return JSON.parse(localStorage.getItem('wt_muscle_pins'))||null}catch(e){return null}}
-function saveMusclePins(d){try{localStorage.setItem('wt_muscle_pins',JSON.stringify(d))}catch(e){}}
+function saveMusclePins(d){try{localStorage.setItem('wt_muscle_pins',JSON.stringify(d));syncSettings();}catch(e){}}
 function loadProfile(){try{return JSON.parse(localStorage.getItem('wt_profile'))||{}}catch(e){return{}}}
-function saveProfile(d){try{localStorage.setItem('wt_profile',JSON.stringify(d))}catch(e){}}
+function saveProfile(d){try{localStorage.setItem('wt_profile',JSON.stringify(d));syncProfile();}catch(e){}}
 function editProfile(){
   const p=loadProfile();
   showModal('個人資料',`
@@ -451,7 +631,7 @@ function getAge(birth){
 }
 
 function loadInBody(){try{return JSON.parse(localStorage.getItem('wt_inbody'))||[]}catch(e){return[]}}
-function saveInBody(d){try{localStorage.setItem('wt_inbody',JSON.stringify(d))}catch(e){}}
+function saveInBody(d){try{localStorage.setItem('wt_inbody',JSON.stringify(d));syncInBody();}catch(e){}}
 
 const IB_METRICS=[
   {key:'weight',label:'體重',unit:'kg'},
@@ -534,10 +714,15 @@ function confirmDelInBody(date){
 function delInBody(date){saveInBody(loadInBody().filter(r=>r.date!==date));closeModal();renderInBody();showToast('已刪除');}
 
 function loadDraft(ds){try{return JSON.parse(localStorage.getItem('wt_draft_'+ds))||null}catch(e){return null}}
-function saveDraft(ds,data){try{localStorage.setItem('wt_draft_'+ds,JSON.stringify(data))}catch(e){}}
-function clearDraft(ds){try{localStorage.removeItem('wt_draft_'+ds)}catch(e){}}
+function saveDraft(ds,data){try{localStorage.setItem('wt_draft_'+ds,JSON.stringify(data));syncDraft(ds,data);}catch(e){}}
+function clearDraft(ds){try{localStorage.removeItem('wt_draft_'+ds);syncDraft(ds,null);}catch(e){}}
 function hasDraft(ds){return localStorage.getItem('wt_draft_'+ds)!==null}
-function autoSaveDraft(){if(workoutDate)saveDraft(workoutDate,{muscle:curMuscle,session:JSON.parse(JSON.stringify(session)),note:document.getElementById('workout-note')?.value||''});}
+function autoSaveDraft(){
+  if(!workoutDate)return;
+  const note=document.getElementById('workout-note')?.value||'';
+  if(Object.keys(session).length===0&&!note.trim()){clearDraft(workoutDate);return;}
+  saveDraft(workoutDate,{muscle:curMuscle,session:JSON.parse(JSON.stringify(session)),note});
+}
 function updateNoteCount(){document.getElementById('note-count').textContent=document.getElementById('workout-note').value.length;}
 function saveDraftAndLeave(){autoSaveDraft();go('s-home');}
 
@@ -563,7 +748,7 @@ function changeMonth(d){calMonth+=d;if(calMonth>11){calMonth=0;calYear++}if(calM
 function fmtDate(d){return`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`}
 
 function loadWeekGoal(){const v=parseInt(localStorage.getItem('wt_week_goal'));return(!isNaN(v)&&v>0)?v:3;}
-function saveWeekGoal(v){localStorage.setItem('wt_week_goal',v);}
+function saveWeekGoal(v){localStorage.setItem('wt_week_goal',v);syncSettings();}
 function setWeekGoal(){
   const cur=loadWeekGoal();
   showModal('每週目標',`<div style="padding:4px 0 8px"><p style="font-size:14px;color:var(--muted);margin-bottom:16px;text-align:center">設定每週訓練目標次數</p><div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px"><button class="nbtn" onclick="var i=document.getElementById('gi');i.value=Math.max(1,parseInt(i.value||1)-1)">－</button><input id="gi" type="number" class="nval" style="width:64px;text-align:center;font-size:22px;font-weight:600" value="${cur}" min="1" max="14"><button class="nbtn" onclick="var i=document.getElementById('gi');i.value=Math.min(14,parseInt(i.value||1)+1)">＋</button></div><div class="modal-btns"><button class="m-cancel" onclick="closeModal()">取消</button><button class="m-ok" onclick="var v=parseInt(document.getElementById('gi').value);if(v>0&&v<=14){saveWeekGoal(v);closeModal();renderStats();showToast('已更新週目標');}">儲存</button></div></div>`);
@@ -605,11 +790,25 @@ function renderCal(){
   document.getElementById('cal-month-label').textContent=`${calYear} 年 ${mn[calMonth]}`;
   const first=new Date(calYear,calMonth,1).getDay(),days=new Date(calYear,calMonth+1,0).getDate();
   let html=['日','一','二','三','四','五','六'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
-  for(let i=0;i<first;i++)html+=`<div class="cal-day other"></div>`;
+  const prevDays=new Date(calYear,calMonth,0).getDate();
+  const prevYear=calMonth===0?calYear-1:calYear,prevMonth=calMonth===0?11:calMonth-1;
+  const nextYear=calMonth===11?calYear+1:calYear,nextMonth=calMonth===11?0:calMonth+1;
+  for(let i=0;i<first;i++){
+    const day=prevDays-first+1+i;
+    const ds=`${prevYear}/${prevMonth+1}/${day}`;
+    const isSaved=checked.has(ds),isDraft=!isSaved&&hasDraft(ds);
+    html+=`<div class="cal-day other ${isSaved?'checked':''} ${isDraft?'draft':''}">${day}</div>`;
+  }
   for(let d=1;d<=days;d++){
     const ds=`${calYear}/${calMonth+1}/${d}`;
     const isSaved=checked.has(ds),isDraft=!isSaved&&hasDraft(ds);
     html+=`<div class="cal-day ${ds===today?'today':''} ${isSaved?'checked':''} ${isDraft?'draft':''}" onclick="openDay('${ds}')">${d}</div>`;
+  }
+  const totalCells=first+days,remainder=totalCells%7===0?0:7-(totalCells%7);
+  for(let i=1;i<=remainder;i++){
+    const ds=`${nextYear}/${nextMonth+1}/${i}`;
+    const isSaved=checked.has(ds),isDraft=!isSaved&&hasDraft(ds);
+    html+=`<div class="cal-day other ${isSaved?'checked':''} ${isDraft?'draft':''}">${i}</div>`;
   }
   document.getElementById('cal-grid').innerHTML=html;
 }
@@ -717,6 +916,7 @@ function executeMoveDay(fromDs,toDs){
   if(idx===-1)return;
   logs[idx]=Object.assign({},logs[idx],{date:toDs});
   saveLogs(logs);
+  syncLog(logs[idx]);deleteCloudLog(fromDs);
   clearDraft(fromDs);
   renderCal();
   showToast(`已搬移到 ${toDs}`);
@@ -733,7 +933,7 @@ function confirmDeleteDay(ds){
       <button class="m-ok" style="background:#d94028" onclick="closeModal();deleteDay('${ds}')">確認刪除</button>
     </div>`);
 }
-function deleteDay(ds){saveLogs(loadLogs().filter(l=>l.date!==ds));clearDraft(ds);renderCal()}
+function deleteDay(ds){saveLogs(loadLogs().filter(l=>l.date!==ds));deleteCloudLog(ds);clearDraft(ds);renderCal()}
 
 function startWorkoutOn(ds){
   workoutDate=ds;
@@ -846,7 +1046,7 @@ function finishWorkout(){
   const entry={date:workoutDate,exercises:keys.map(n=>({name:n,sets:session[n].map(s=>({...s}))}))};
   if(note)entry.note=note;
   if(idx>=0)logs[idx]=entry;else logs.push(entry);
-  saveLogs(logs);clearDraft(workoutDate);go('s-home');
+  saveLogs(logs);syncLog(entry);clearDraft(workoutDate);go('s-home');
 }
 
 function addMuscle(){showModal('新增肌群',`<input class="modal-input" id="m-inp" placeholder="例：核心"><div class="modal-btns"><button class="m-cancel" onclick="closeModal()">取消</button><button class="m-ok" onclick="confirmAddMuscle()">新增</button></div>`)}
@@ -1293,6 +1493,8 @@ function confirmDelMuscle(m){
 }
 function delMuscleS(m){const db=loadDB();delete db[m];saveDB(db);renderSettings();manageDB();}
 function renderSettings(){
+  const emailEl=document.getElementById('settings-email');
+  if(emailEl&&_user)emailEl.textContent=_user.email;
   const logs=loadLogs(),db=loadDB();
   const totalEx=Object.values(db).reduce((a,cats)=>a+Object.values(cats).reduce((b,exs)=>b+exs.length,0),0);
   document.getElementById('stats-logs').textContent=`共 ${logs.length} 筆訓練紀錄`;
@@ -1532,7 +1734,7 @@ function addDbTouchDrag(){
   });
 }
 
-requestAnimationFrame(()=>renderCal());
+initApp();
 </script>
 </body>
 </html>
