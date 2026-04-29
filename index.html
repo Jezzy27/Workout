@@ -481,6 +481,8 @@ async function pullFromCloud() {
     _sb.from('workout_inbody').select('date,data').eq('user_id', uid),
     _sb.from('workout_drafts').select('date,muscle,session,note').eq('user_id', uid)
   ]);
+  const errs = [logs, db, settings, profile, inbody, drafts].map(r => r.error).filter(Boolean);
+  if (errs.length) { showToast('⚠️ 雲端載入失敗：' + errs[0].message); return; }
   if (logs.data?.length) localStorage.setItem('wt_logs', JSON.stringify(logs.data));
   if (db.data?.data) localStorage.setItem('wt_db', JSON.stringify(db.data.data));
   if (settings.data?.data) {
@@ -510,34 +512,48 @@ function cleanupEmptyDrafts() {
 // ── Sync to Supabase ──
 async function syncLog(log) {
   if (!_user) return;
-  await _sb.from('workout_logs').upsert({ user_id: _user.id, date: log.date, exercises: log.exercises || [], note: log.note || '' }, { onConflict: 'user_id,date' });
+  const { error } = await _sb.from('workout_logs').upsert({ user_id: _user.id, date: log.date, exercises: log.exercises || [], note: log.note || '' }, { onConflict: 'user_id,date' });
+  if (error) showToast('⚠️ 同步失敗：' + error.message);
 }
 async function deleteCloudLog(date) {
   if (!_user) return;
-  await _sb.from('workout_logs').delete().eq('user_id', _user.id).eq('date', date);
+  const { error } = await _sb.from('workout_logs').delete().eq('user_id', _user.id).eq('date', date);
+  if (error) showToast('⚠️ 同步失敗：' + error.message);
 }
 async function syncDB() {
   if (!_user) return;
-  await _sb.from('workout_db').upsert({ user_id: _user.id, data: loadDB(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  const { error } = await _sb.from('workout_db').upsert({ user_id: _user.id, data: loadDB(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) showToast('⚠️ 同步失敗：' + error.message);
 }
 async function syncSettings() {
   if (!_user) return;
-  await _sb.from('workout_settings').upsert({ user_id: _user.id, data: { pins: loadPins(), assist: loadAssist(), muscle_pins: loadMusclePins(), week_goal: loadWeekGoal() }, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  const { error } = await _sb.from('workout_settings').upsert({ user_id: _user.id, data: { pins: loadPins(), assist: loadAssist(), muscle_pins: loadMusclePins(), week_goal: loadWeekGoal() }, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) showToast('⚠️ 同步失敗：' + error.message);
 }
 async function syncProfile() {
   if (!_user) return;
-  await _sb.from('workout_profiles').upsert({ user_id: _user.id, data: loadProfile(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  const { error } = await _sb.from('workout_profiles').upsert({ user_id: _user.id, data: loadProfile(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) showToast('⚠️ 同步失敗：' + error.message);
 }
 async function syncInBody() {
   if (!_user) return;
   const records = loadInBody();
-  await _sb.from('workout_inbody').delete().eq('user_id', _user.id);
-  if (records.length) await _sb.from('workout_inbody').insert(records.map(r => ({ user_id: _user.id, date: r.date, data: r })));
+  const { error: delErr } = await _sb.from('workout_inbody').delete().eq('user_id', _user.id);
+  if (delErr) { showToast('⚠️ 同步失敗：' + delErr.message); return; }
+  if (records.length) {
+    const { error } = await _sb.from('workout_inbody').insert(records.map(r => ({ user_id: _user.id, date: r.date, data: r })));
+    if (error) showToast('⚠️ 同步失敗：' + error.message);
+  }
 }
 async function syncDraft(ds, data) {
   if (!_user) return;
-  if (data) await _sb.from('workout_drafts').upsert({ user_id: _user.id, date: ds, session: data.session || {}, muscle: data.muscle || '', note: data.note || '', updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' });
-  else await _sb.from('workout_drafts').delete().eq('user_id', _user.id).eq('date', ds);
+  if (data) {
+    const { error } = await _sb.from('workout_drafts').upsert({ user_id: _user.id, date: ds, session: data.session || {}, muscle: data.muscle || '', note: data.note || '', updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' });
+    if (error) showToast('⚠️ 同步失敗：' + error.message);
+  } else {
+    const { error } = await _sb.from('workout_drafts').delete().eq('user_id', _user.id).eq('date', ds);
+    if (error) showToast('⚠️ 同步失敗：' + error.message);
+  }
 }
 
 // ── App init ──
@@ -1454,8 +1470,10 @@ function confirmRenameEx(m,c,oldName){
   db[m][c]=db[m][c].map(x=>x===oldName?newName:x);
   saveDB(db);
   const logs=loadLogs();
-  logs.forEach(w=>{(w.exercises||[]).forEach(e=>{if(e.name===oldName)e.name=newName;});});
+  const affected=[];
+  logs.forEach(w=>{(w.exercises||[]).forEach(e=>{if(e.name===oldName){e.name=newName;if(!affected.includes(w))affected.push(w);}});});
   saveLogs(logs);
+  affected.forEach(w=>syncLog(w));
   renderSettings();manageDB();showToast(`「${oldName}」已改名為「${newName}」`);
 }
 function moveEx(fromM,fromC,e,toM,toC){
