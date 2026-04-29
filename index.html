@@ -328,7 +328,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
   <div class="backup-status" id="backup-status"></div>
   <div class="scroll">
     <div class="settings-section">
-      <div class="settings-label">個人資料</div>
+      <div class="settings-label">帳號</div>
       <div class="settings-card">
         <div class="settings-row" onclick="editProfile()">
           <div class="settings-row-left">
@@ -337,11 +337,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
           </div>
           <span class="settings-arrow">›</span>
         </div>
+        <div class="settings-row" onclick="doLogout()">
+          <div class="settings-row-left">
+            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 13v-2H7V8l-5 4 5 4v-3z"/><path d="M20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg></div>
+            <div><div class="settings-row-title">登出</div><div class="settings-row-sub" id="settings-email"></div></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-label">資料備份</div>
+      <div class="settings-label">資料管理</div>
       <div class="settings-card">
+        <div class="settings-row" onclick="manageDB()">
+          <div class="settings-row-left">
+            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="10.5" width="4" height="3" rx="1.2"/><rect x="19" y="10.5" width="4" height="3" rx="1.2"/><rect x="5" y="8.5" width="3" height="7" rx="1"/><rect x="16" y="8.5" width="3" height="7" rx="1"/><rect x="8" y="11" width="8" height="2" rx="1"/></svg></div>
+            <div><div class="settings-row-title">動作資料庫</div><div class="settings-row-sub" id="stats-db">載入中...</div></div>
+          </div>
+          <span class="settings-arrow">›</span>
+        </div>
         <div class="settings-row" onclick="exportData()">
           <div class="settings-row-left">
             <div class="settings-icon" style="background:#E6F4ED;color:#3DAA78"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 0 1 .4 1 1v8.6l2.3-2.3a1 1 0 0 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 11.6V3c0-.6.4-1 1-1z"/><path d="M3 17a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg></div>
@@ -356,6 +369,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
           </div>
           <span class="settings-arrow">›</span>
         </div>
+        <div class="settings-row" onclick="pushAllToCloud()">
+          <div class="settings-row-left">
+            <div class="settings-icon" style="background:#E8F4FD;color:#2E86C1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+            <div><div class="settings-row-title">強制同步到雲端</div><div class="settings-row-sub">登入時會自動同步，這裡可手動補推</div></div>
+          </div>
+        </div>
       </div>
       <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
     </div>
@@ -367,13 +386,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
             <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="5" height="9" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="4" width="5" height="17" rx="1"/></svg></div>
             <div><div class="settings-row-title">訓練紀錄</div><div class="settings-row-sub" id="stats-logs">載入中...</div></div>
           </div>
-        </div>
-        <div class="settings-row" onclick="manageDB()">
-          <div class="settings-row-left">
-            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="10.5" width="4" height="3" rx="1.2"/><rect x="19" y="10.5" width="4" height="3" rx="1.2"/><rect x="5" y="8.5" width="3" height="7" rx="1"/><rect x="16" y="8.5" width="3" height="7" rx="1"/><rect x="8" y="11" width="8" height="2" rx="1"/></svg></div>
-            <div><div class="settings-row-title">動作資料庫</div><div class="settings-row-sub" id="stats-db">載入中...</div></div>
-          </div>
-          <span class="settings-arrow">›</span>
         </div>
         <div class="settings-row" style="cursor:default">
           <div class="settings-row-left">
@@ -395,22 +407,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
         </div>
       </div>
     </div>
-    <div class="settings-section">
-      <div class="settings-card">
-        <div class="settings-row" onclick="pushAllToCloud()">
-          <div class="settings-row-left">
-            <div class="settings-icon" style="background:#E8F4FD;color:#2E86C1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
-            <div><div class="settings-row-title">強制同步到雲端</div><div class="settings-row-sub">登入時會自動同步，這裡可手動補推</div></div>
-          </div>
-        </div>
-        <div class="settings-row" onclick="doLogout()">
-          <div class="settings-row-left">
-            <div class="settings-icon" style="background:#F1EFE8;color:#8B7B5E"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 13v-2H7V8l-5 4 5 4v-3z"/><path d="M20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg></div>
-            <div><div class="settings-row-title">登出</div><div class="settings-row-sub" id="settings-email"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div style="text-align:center;padding:20px 20px 8px;color:var(--muted);font-size:12px">__BUILD_TIME__</div>
     <div style="height:20px"></div>
   </div>
   <div class="tabs-spacer"></div><div class="tabs-wrap"><div class="tabs">
@@ -1593,7 +1590,16 @@ function importData(event){
   reader.readAsText(file);event.target.value='';
 }
 function clearAllData(){
-  if(!confirm('確定要清除所有訓練紀錄嗎？\n這個動作無法復原！'))return;
+  showModal('清除所有資料',`
+    <p style="color:var(--text-sub);font-size:14px;margin-bottom:16px">此操作將永久刪除全部訓練紀錄，無法復原。<br>請輸入「<strong style="color:var(--coral)">我確認要刪除</strong>」以繼續。</p>
+    <input class="modal-input" id="clear-confirm-inp" placeholder="我確認要刪除" oninput="document.getElementById('clear-confirm-btn').disabled=this.value!=='我確認要刪除'">
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="closeModal()">取消</button>
+      <button class="m-ok" id="clear-confirm-btn" disabled style="background:var(--coral)" onclick="execClearAllData()">確認刪除</button>
+    </div>`);
+}
+function execClearAllData(){
+  closeModal();
   localStorage.removeItem('wt_logs');localStorage.removeItem('wt_last_backup');
   showStatus('🗑 已清除所有訓練紀錄');renderSettings();
 }
