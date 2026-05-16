@@ -13,7 +13,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --cream:#FAF8F5;--coral:#E05A3A;--coral-l:#FAEAE5;--coral-m:#F5C4B3;
+  --cream:#FAF8F5;--coral:#E05A3A;--coral-l:#FAEAE5;--coral-m:#12100f;
   --muted:#9E8E85;--card:#FFF;--border:rgba(92,64,51,0.1);--text:#2C1F1A;--green:#2D7D4F
 }
 html,body{height:100%;background:#F0EDE8}
@@ -473,7 +473,7 @@ function clearLocalCache() {
   // 草稿保留不清除，登入後由 pullFromCloud 合併（避免登出時刪掉未同步的草稿）
 }
 
-// ── Pull from Supabase on login (bidirectional merge) ──
+// ── Pull from Supabase on login (local-first merge) ──
 async function pullFromCloud() {
   const uid = _user.id;
   const localLogs = JSON.parse(localStorage.getItem('wt_logs') || '[]');
@@ -488,10 +488,12 @@ async function pullFromCloud() {
   const errs = [logs, db, settings, profile, inbody, drafts].map(r => r.error).filter(Boolean);
   if (errs.length) { showToast('⚠️ 雲端載入失敗：' + errs[0].message); return; }
 
-  // Merge logs: cloud wins for same date; local-only dates get pushed up to cloud
+  // Logs: 本地優先；本地有的日期保留本地版，雲端有但本地沒有的補回來，本地獨有的推上雲端
   const cloudDates = new Set((logs.data || []).map(l => l.date));
+  const localDates = new Set(localLogs.map(l => l.date));
   const localOnly = localLogs.filter(l => !cloudDates.has(l.date));
-  const merged = [...(logs.data || []), ...localOnly];
+  const cloudOnly = (logs.data || []).filter(l => !localDates.has(l.date));
+  const merged = [...localLogs, ...cloudOnly];
   if (merged.length) localStorage.setItem('wt_logs', JSON.stringify(merged));
   if (localOnly.length) {
     _sb.from('workout_logs').upsert(
@@ -500,19 +502,25 @@ async function pullFromCloud() {
     ).then(({ error }) => { if (error) showToast('⚠️ 同步失敗：' + error.message); });
   }
 
-  if (db.data?.data) localStorage.setItem('wt_db', JSON.stringify(db.data.data));
-  else syncDB();
-  if (settings.data?.data) {
+  // db / settings / profile / inbody：本地有資料 → 本地優先，推本地上雲端；本地空 → 從雲端填入（換裝置情境）
+  if (localStorage.getItem('wt_db')) syncDB();
+  else if (db.data?.data) localStorage.setItem('wt_db', JSON.stringify(db.data.data));
+
+  const hasLocalSettings = ['wt_pins','wt_assist','wt_muscle_pins','wt_week_goal'].some(k => localStorage.getItem(k) !== null);
+  if (hasLocalSettings) syncSettings();
+  else if (settings.data?.data) {
     const s = settings.data.data;
     if (s.pins != null) localStorage.setItem('wt_pins', JSON.stringify(s.pins));
     if (s.assist != null) localStorage.setItem('wt_assist', JSON.stringify(s.assist));
     if (s.muscle_pins != null) localStorage.setItem('wt_muscle_pins', JSON.stringify(s.muscle_pins));
     if (s.week_goal != null) localStorage.setItem('wt_week_goal', s.week_goal);
-  } else { syncSettings(); }
-  if (profile.data?.data) localStorage.setItem('wt_profile', JSON.stringify(profile.data.data));
-  else syncProfile();
-  if (inbody.data?.length) localStorage.setItem('wt_inbody', JSON.stringify(inbody.data.map(r => ({ date: r.date, ...r.data }))));
-  else syncInBody();
+  }
+
+  if (localStorage.getItem('wt_profile')) syncProfile();
+  else if (profile.data?.data) localStorage.setItem('wt_profile', JSON.stringify(profile.data.data));
+
+  if (localStorage.getItem('wt_inbody')) syncInBody();
+  else if (inbody.data?.length) localStorage.setItem('wt_inbody', JSON.stringify(inbody.data.map(r => ({ date: r.date, ...r.data }))));
   // 本地草稿優先：本地已有草稿時不覆蓋（本地版可能比雲端更新）
   if (drafts.data?.length) drafts.data.forEach(d => {
     if (!hasDraft(d.date)) {
