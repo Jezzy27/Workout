@@ -107,6 +107,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 .filter-row{display:flex;gap:8px;padding:10px 20px;overflow-x:auto;scrollbar-width:none}.filter-row::-webkit-scrollbar{display:none}
 .fchip{padding:7px 16px;border-radius:20px;border:.5px solid var(--border);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .fchip.on{background:var(--coral-l);color:var(--coral);border-color:var(--coral-m)}
+.vol-toggle{display:flex;margin:0 20px 4px;background:rgba(92,64,51,0.08);border-radius:20px;padding:3px}
+.vol-toggle-btn{flex:1;padding:7px;border:none;border-radius:17px;font-size:13px;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.vol-toggle-btn.on{background:var(--card);color:var(--coral);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
 .chart-card{margin:8px 20px;background:var(--card);border-radius:16px;padding:14px;border:.5px solid var(--border)}
 .chart-card-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:10px}
 .pr-cards{padding:0 20px;display:flex;flex-direction:column;gap:10px}
@@ -288,12 +291,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;di
 <div id="s-pr" class="screen">
   <div class="scroll">
     <div class="pr-header"><h1>進步趨勢</h1></div>
+    <div class="vol-toggle">
+      <button class="vol-toggle-btn on" data-mode="pr" onclick="setMode('pr')">最大重量</button>
+      <button class="vol-toggle-btn" data-mode="volume" onclick="setMode('volume')">訓練量</button>
+    </div>
     <div class="filter-row" id="pr-filters"></div>
     <div class="chart-card" id="pr-chart-card" style="display:none">
       <div class="chart-card-title" id="pr-chart-title"></div>
       <canvas id="prChart" height="150"></canvas>
     </div>
-    <div style="padding:10px 20px 6px;font-size:13px;color:var(--muted)">點選動作查看趨勢</div>
+    <div id="pr-hint" style="padding:10px 20px 6px;font-size:13px;color:var(--muted)">點選動作查看趨勢</div>
     <div class="pr-cards" id="pr-cards"></div>
   </div>
   <div class="tabs-spacer"></div><div class="tabs-wrap"><div class="tabs">
@@ -792,7 +799,85 @@ function saveDraftAndLeave(){autoSaveDraft();go('s-home');}
 
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let workoutDate='',curMuscle='',session={};
-let selectedEx=null,prChartInst=null,prFilter='',_openSwipe=null;
+let selectedEx=null,prChartInst=null,prFilter='',_openSwipe=null,prMode='pr',volWeekIdx=7;
+function setMode(m){
+  prMode=m;volWeekIdx=7;
+  document.querySelectorAll('.vol-toggle-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  selectedEx=null;_openSwipe=null;renderPR();
+}
+function changeVolWeek(delta){volWeekIdx=Math.max(0,Math.min(7,volWeekIdx+delta));renderVolume();}
+function calcVolumeData(logs,db){
+  const exToMuscle={};
+  Object.entries(db).forEach(([muscle,cats])=>{Object.values(cats).forEach(exs=>exs.forEach(ex=>{exToMuscle[ex]=muscle;}))});
+  const now=new Date();
+  const dow=now.getDay();
+  const monday=new Date(now);
+  monday.setDate(now.getDate()-(dow===0?6:dow-1));
+  monday.setHours(0,0,0,0);
+  const weeks=[];
+  for(let i=7;i>=0;i--){const d=new Date(monday);d.setDate(d.getDate()-i*7);weeks.push(d);}
+  const volumeData={};
+  logs.forEach(log=>{
+    const p=log.date.split('/');
+    const ld=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
+    const lday=ld.getDay();
+    const lmon=new Date(ld);lmon.setDate(ld.getDate()-(lday===0?6:lday-1));lmon.setHours(0,0,0,0);
+    const wk=lmon.getTime();
+    (log.exercises||[]).forEach(ex=>{
+      const muscle=exToMuscle[ex.name]||'其他';
+      const vol=(ex.sets||[]).reduce((sum,s)=>sum+(parseFloat(s.w)||0)*(parseInt(s.r)||0),0);
+      if(!vol)return;
+      if(!volumeData[wk])volumeData[wk]={};
+      if(!volumeData[wk][muscle])volumeData[wk][muscle]={total:0,exercises:{}};
+      volumeData[wk][muscle].total+=vol;
+      volumeData[wk][muscle].exercises[ex.name]=(volumeData[wk][muscle].exercises[ex.name]||0)+vol;
+    });
+  });
+  return{volumeData,weeks};
+}
+function renderVolume(){
+  const logs=loadLogs(),db=loadDB();
+  const muscles=Object.keys(db);
+  if(!muscles.includes(prFilter))prFilter=muscles[0]||'';
+  document.getElementById('pr-filters').innerHTML=muscles.map(t=>`<div class="fchip ${t===prFilter?'on':''}" onclick="setPRFilter('${t}')">${t}</div>`).join('');
+  document.getElementById('pr-hint').style.display='none';
+  if(!logs.length){
+    document.getElementById('pr-chart-card').style.display='none';
+    document.getElementById('pr-cards').innerHTML='<div class="empty-hint">完成訓練後顯示</div>';return;
+  }
+  const{volumeData,weeks}=calcVolumeData(logs,db);
+  const labels=weeks.map((w,i)=>i===weeks.length-1?'本週':`${w.getMonth()+1}/${w.getDate()}`);
+  const chartData=weeks.map(w=>Math.round(volumeData[w.getTime()]?.[prFilter]?.total||0));
+  const card=document.getElementById('pr-chart-card');
+  card.style.display='block';
+  document.getElementById('pr-chart-title').textContent=`${prFilter} 週訓練量`;
+  const ctx=document.getElementById('prChart').getContext('2d');
+  if(prChartInst)prChartInst.destroy();
+  prChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:chartData,backgroundColor:chartData.map((_,i)=>i===weeks.length-1?'#E05A3A':'rgba(224,90,58,0.25)'),borderRadius:6,borderSkipped:false}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>v>=1000?`${(v/1000).toFixed(1)}k`:v}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  const selWeek=weeks[volWeekIdx];
+  const selWeekData=volumeData[selWeek.getTime()]?.[prFilter];
+  const isCurrentWeek=volWeekIdx===weeks.length-1;
+  const weekLabel=isCurrentWeek?'本週':`${selWeek.getMonth()+1}/${selWeek.getDate()} 週`;
+  const navBtn=(dir,disabled)=>`<button onclick="changeVolWeek(${dir})" style="width:32px;height:32px;border:none;background:${disabled?'transparent':'var(--card)'};border-radius:50%;font-size:16px;color:${disabled?'var(--border)':'var(--muted)'};cursor:${disabled?'default':'pointer'};display:flex;align-items:center;justify-content:center;box-shadow:${disabled?'none':'0 1px 3px rgba(0,0,0,0.08)'}">${dir<0?'‹':'›'}</button>`;
+  if(!selWeekData||!selWeekData.total){
+    document.getElementById('pr-cards').innerHTML=`
+      <div style="padding:10px 20px 6px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;color:var(--muted)">${weekLabel}各動作</span>
+        <div style="display:flex;gap:4px">${navBtn(-1,volWeekIdx===0)}${navBtn(1,isCurrentWeek)}</div>
+      </div>
+      <div style="padding:8px 20px;font-size:13px;color:var(--muted)">該週尚無訓練資料</div>`;return;
+  }
+  const exEntries=Object.entries(selWeekData.exercises).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('pr-cards').innerHTML=`
+    <div style="padding:10px 20px 6px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:var(--muted)">${weekLabel}各動作</span>
+      <div style="display:flex;gap:4px">${navBtn(-1,volWeekIdx===0)}${navBtn(1,isCurrentWeek)}</div>
+    </div>
+    <div style="margin:0 20px 20px;background:var(--card);border-radius:16px;border:.5px solid var(--border);overflow:hidden">
+      ${exEntries.map(([name,vol],i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;${i<exEntries.length-1?'border-bottom:.5px solid var(--border)':''}"><span style="font-size:14px;color:var(--text)">${name}</span><span style="font-size:14px;font-weight:500;color:var(--coral)">${Math.round(vol).toLocaleString()} kg</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:var(--coral-l);border-top:.5px solid var(--border)"><span style="font-size:14px;font-weight:500;color:var(--text)">共</span><span style="font-size:15px;font-weight:600;color:var(--coral)">${Math.round(selWeekData.total).toLocaleString()} kg</span></div>
+    </div>`;
+}
 
 function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1146,6 +1231,8 @@ function delExercise(m,c,e){const db=loadDB();db[m][c]=db[m][c].filter(x=>x!==e)
 
 
 function renderPR(){
+  if(prMode==='volume'){renderVolume();return;}
+  document.getElementById('pr-hint').style.display='';
   const logs=loadLogs(),db=loadDB(),exMap={};
   logs.forEach(w=>{(w.exercises||[]).forEach(e=>{
     if(!exMap[e.name])exMap[e.name]={history:[],muscle:'其他'};
