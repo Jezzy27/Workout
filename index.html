@@ -1238,6 +1238,20 @@ function initSwipeCards(){
 }
 function togglePin(name){const pins=loadPins();const i=pins.indexOf(name);if(i>=0)pins.splice(i,1);else pins.push(name);savePins(pins);_openSwipe=null;selectedEx=name;renderPR();}
 function setPRFilter(f){prFilter=f;selectedEx=null;_openSwipe=null;renderPR()}
+function sampleHistory(history,max){
+  if(history.length<=max)return history;
+  const result=[history[0]];
+  const middle=history.slice(1,history.length-1);
+  const bucketCount=max-2;
+  const bucketSize=middle.length/bucketCount;
+  for(let i=0;i<bucketCount;i++){
+    const bucket=middle.slice(Math.floor(i*bucketSize),Math.floor((i+1)*bucketSize));
+    if(bucket.length)result.push(bucket.reduce((a,b)=>a.w>=b.w?a:b));
+  }
+  result.push(history[history.length-1]);
+  return result;
+}
+function fmtChartDate(d){const p=d.split('/');return p[0]+'/'+parseInt(p[1]);}
 function showPRChart(name,exMap,fromRender){
   if(!exMap){const logs=loadLogs();exMap={};logs.forEach(w=>{(w.exercises||[]).forEach(e=>{if(!exMap[e.name])exMap[e.name]={history:[]};exMap[e.name].history.push({date:w.date,w:Math.max(...e.sets.map(s=>s.w))})})});Object.values(exMap).forEach(v=>{v.history.sort((a,b)=>new Date(a.date)-new Date(b.date))})}
   selectedEx=name;
@@ -1250,7 +1264,8 @@ function showPRChart(name,exMap,fromRender){
   if(prChartInst)prChartInst.destroy();
   const chartColor=isAssistChart?'#2D7D4F':'#E05A3A';
   const chartBg=isAssistChart?'rgba(45,125,79,0.1)':'rgba(224,90,58,0.1)';
-  prChartInst=new Chart(ctx,{type:'line',data:{labels:data.history.map(h=>h.date),datasets:[{data:data.history.map(h=>h.w),borderColor:chartColor,backgroundColor:chartBg,tension:0.4,pointBackgroundColor:chartColor,pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,reverse:isAssistChart,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  const sampled=sampleHistory(data.history,10);
+  prChartInst=new Chart(ctx,{type:'line',data:{labels:sampled.map(h=>fmtChartDate(h.date)),datasets:[{data:sampled.map(h=>h.w),borderColor:chartColor,backgroundColor:chartBg,tension:0.4,pointBackgroundColor:chartColor,pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,reverse:isAssistChart,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
   if(!fromRender){renderPR();card.scrollIntoView({behavior:'smooth'});}
 }
 
