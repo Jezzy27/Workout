@@ -799,13 +799,20 @@ function saveDraftAndLeave(){autoSaveDraft();go('s-home');}
 
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let workoutDate='',curMuscle='',session={};
-let selectedEx=null,prChartInst=null,prFilter='',_openSwipe=null,prMode='pr',volWeekIdx=7;
+let selectedEx=null,prChartInst=null,prFilter='',_openSwipe=null,prMode='pr',volWeekIdx=7,_volWeeks=[],_volData={};
 function setMode(m){
   prMode=m;volWeekIdx=7;
   document.querySelectorAll('.vol-toggle-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
   selectedEx=null;_openSwipe=null;renderPR();
 }
-function changeVolWeek(delta){volWeekIdx=Math.max(0,Math.min(7,volWeekIdx+delta));renderVolume();}
+function changeVolWeek(delta){
+  volWeekIdx=Math.max(0,Math.min(7,volWeekIdx+delta));
+  if(prChartInst){
+    prChartInst.data.datasets[0].backgroundColor=_volWeeks.map((_,i)=>i===volWeekIdx?'#E05A3A':'rgba(224,90,58,0.25)');
+    prChartInst.update('none');
+  }
+  renderVolCards();
+}
 function calcVolumeData(logs,db){
   const exToMuscle={};
   Object.entries(db).forEach(([muscle,cats])=>{Object.values(cats).forEach(exs=>exs.forEach(ex=>{exToMuscle[ex]=muscle;}))});
@@ -846,14 +853,19 @@ function renderVolume(){
     document.getElementById('pr-cards').innerHTML='<div class="empty-hint">完成訓練後顯示</div>';return;
   }
   const{volumeData,weeks}=calcVolumeData(logs,db);
+  _volWeeks=weeks;_volData=volumeData;
   const labels=weeks.map((w,i)=>i===weeks.length-1?'本週':`${w.getMonth()+1}/${w.getDate()}`);
   const chartData=weeks.map(w=>Math.round(volumeData[w.getTime()]?.[prFilter]?.total||0));
-  const card=document.getElementById('pr-chart-card');
-  card.style.display='block';
+  document.getElementById('pr-chart-card').style.display='block';
   document.getElementById('pr-chart-title').textContent=`${prFilter} 週訓練量`;
   const ctx=document.getElementById('prChart').getContext('2d');
   if(prChartInst)prChartInst.destroy();
-  prChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:chartData,backgroundColor:chartData.map((_,i)=>i===weeks.length-1?'#E05A3A':'rgba(224,90,58,0.25)'),borderRadius:6,borderSkipped:false}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>v>=1000?`${(v/1000).toFixed(1)}k`:v}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  prChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:chartData,backgroundColor:weeks.map((_,i)=>i===volWeekIdx?'#E05A3A':'rgba(224,90,58,0.25)'),borderRadius:6,borderSkipped:false}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>v>=1000?`${(v/1000).toFixed(1)}k`:v}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  renderVolCards();
+}
+function renderVolCards(){
+  const weeks=_volWeeks,volumeData=_volData;
+  if(!weeks.length)return;
   const selWeek=weeks[volWeekIdx];
   const selWeekData=volumeData[selWeek.getTime()]?.[prFilter];
   const isCurrentWeek=volWeekIdx===weeks.length-1;
